@@ -6,90 +6,116 @@
 <title>Cadabra</title>
 <style>
   :root {
-    --bg: #0b0d10; --panel: #12161b; --inset: #0e1216; --line: #222a33;
-    --text: #e6edf3; --muted: #8b98a5; --ours: #4ade80; --ours-line: #166534;
-    --bad: #f87171; --bad-line: #7f1d1d; --warn: #fbbf24; --accent: #1f6feb;
+    --bg: #F5F8F4; --surface: #FFFFFF; --inset: #F0F5EE; --line: #E1EADD; --line-2: #B9C6B3;
+    --ink: #1B1F1C; --muted: #5F6F62; --accent: #19E76E; --accent-deep: #00B86B; --pink: #FFA9FD;
+    --bad: #C1553B; --sage: #A4B09F;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 14px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-  h1 { margin: 0; font-size: 20px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 28px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--surface); }
+  h1 { margin: 0; font-size: 19px; letter-spacing: -.01em; }
+  h1 .dot { color: var(--accent-deep); }
   .muted { color: var(--muted); }
-  main { padding: 16px 24px 40px; display: grid; gap: 16px; }
-  .top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
-  @media (max-width: 900px) { .top { grid-template-columns: 1fr; } }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  textarea, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-  textarea { width: 100%; min-height: 150px; padding: 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
-  select, button { padding: 8px 12px; }
-  select { max-width: 100%; }
+  nav { margin-left: auto; display: flex; gap: 6px; }
+  nav button { background: transparent; border: 1px solid transparent; color: var(--muted); border-radius: 999px; padding: 6px 14px; }
+  nav button.on { background: var(--inset); border-color: var(--line); color: var(--ink); font-weight: 600; }
+  main { padding: 20px 28px 48px; display: grid; gap: 18px; max-width: 1500px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  select, button, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; }
   button { cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
-  button:disabled { opacity: .5; cursor: default; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
-  .card h3 { margin: 0 0 8px; font-size: 14px; }
-  .viewer { height: 240px; border-radius: 8px; background: radial-gradient(circle at 50% 40%, #1a2230, #0b0e12); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  button:hover { border-color: var(--accent-deep); }
+  button.primary { background: var(--accent); border-color: var(--accent-deep); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: default; }
+  textarea { width: 100%; min-height: 120px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+  label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .card h2, .card h3 { margin: 0; font-size: 14px; }
+  .split { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
+  .cards .card { display: grid; gap: 8px; align-content: start; border-top: 3px solid var(--line-2); }
+  .card.ours { border-top-color: var(--accent); }
+  .card.truth { border-top-color: var(--pink); }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .head h3 { line-height: 1.3; }
+  .viewer { height: 210px; border-radius: 8px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
   .viewer canvas { display: block; width: 100%; height: 100%; }
   .viewer .hint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; color: var(--muted); pointer-events: none; }
-  .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-  .lane { display: grid; gap: 8px; align-content: start; }
-  .lane.ours { border-color: var(--ours-line); }
-  .lane h2 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
-  .badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-  .ours .badge { color: var(--ours); border-color: var(--ours-line); }
+  .pill { display: inline-block; white-space: nowrap; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); background: var(--inset); }
+  .pill.ok { color: #0a6b3d; border-color: var(--accent-deep); background: #E8FBF0; }
+  .pill.no { color: var(--bad); border-color: #E7C3B8; background: #FBF0ED; }
+  .stats { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .slug { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
   .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .m { background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-  .m b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .m b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
   .m span { color: var(--muted); font-size: 11px; }
-  .status { color: var(--muted); font-size: 12px; min-height: 18px; }
-  .pill { display: inline-block; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--ours); border-color: var(--ours-line); }
-  .pill.no { color: var(--bad); border-color: var(--bad-line); }
-  .pill.warn { color: var(--warn); border-color: #78350f; }
-  details pre { margin: 6px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; font: 11.5px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  details pre { margin: 6px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 240px; overflow: auto; font: 11.5px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   summary { cursor: pointer; color: var(--muted); font-size: 12px; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th, td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--muted); font-weight: 500; }
+  tr.ours td { background: #F3FDF7; font-weight: 600; }
   .scroll { overflow-x: auto; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Cadabra</h1>
-  <span class="muted">A 4B model post-trained on a Baseten H100 reads engineering drawings into CAD code, racing frontier models. The geometry decides who wins.</span>
+  <h1>Cadabra<span class="dot">.</span></h1>
+  <span class="muted">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program. The geometry decides who is right.</span>
+  <nav>
+    <button id="tab-compare" class="on">Compare</button>
+    <button id="tab-race">Live race</button>
+  </nav>
 </header>
+
 <main>
-  <section class="top">
-    <div class="card">
-      <div class="row" style="margin-bottom:8px">
-        <select id="examples"><option value="">Held-out part…</option></select>
-        <select id="modality"><option value="text">Input: written spec</option><option value="image">Input: drawing sheet</option></select>
-        <button class="primary" id="go">Race ▶</button>
-        <span class="muted" id="note">Pick a held-out spec (never seen in training) or write your own.</span>
-      </div>
-      <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
-      <div id="sheetbox" style="display:none"><img id="sheet" alt="drawing sheet" style="width:100%;max-width:560px;border-radius:8px;border:1px solid var(--line);background:#fff"><div class="muted" id="bboxline"></div></div>
+  <section id="compare" class="card">
+    <div class="bar">
+      <select id="parts"></select>
+      <label class="check"><input type="checkbox" id="onlywins"> only parts both frontier models get wrong</label>
+      <label class="check"><input type="checkbox" id="single"> show our single-sample answer</label>
+      <button id="shuffle">Shuffle</button>
+      <span class="muted" id="partnote"></span>
     </div>
-    <div class="card">
-      <h3>Target part <span class="muted" id="tstats"></span></h3>
-      <div class="viewer" id="target"><span class="hint">reference solid</span></div>
+    <div class="split" style="margin-top:14px">
+      <div class="card sheet">
+        <h3>Input · drawing sheet</h3>
+        <div class="muted" style="font-size:12px;margin:4px 0 8px" id="bboxline"></div>
+        <img id="sheet" alt="drawing sheet">
+      </div>
+      <div class="cards" id="results"></div>
     </div>
   </section>
 
-  <section class="lanes" id="lanes"></section>
+  <section id="race" class="card" hidden>
+    <div class="bar">
+      <select id="examples"><option value="">Held-out part…</option></select>
+      <select id="modality"><option value="image">Input: drawing sheet</option><option value="text">Input: written spec</option></select>
+      <button id="go" class="primary">Run ▶</button>
+      <span class="muted" id="note"></span>
+    </div>
+    <div class="split" style="margin-top:14px">
+      <div class="card sheet">
+        <div id="sheetbox"><h3>Input · drawing sheet</h3><div class="muted" style="font-size:12px;margin:4px 0 8px" id="rbbox"></div><img id="rsheet" alt="drawing sheet" hidden></div>
+        <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
+        <div style="margin-top:10px"><h3>Target part <span class="muted" id="tstats"></span></h3>
+          <div class="viewer" id="target" style="margin-top:6px"><span class="hint">reference solid</span></div></div>
+      </div>
+      <div class="cards" id="lanes"></div>
+    </div>
+  </section>
 
-  <section class="card scroll">
-    <h3>Held-out benchmark <span class="muted" id="sbmeta"></span></h3>
-    <div id="scoreboard" class="muted">No benchmark run yet: <code>python -m cadabra.cad.bench</code></div>
+  <section class="card">
+    <h2>Held-out benchmark <span class="muted" id="sbmeta"></span></h2>
+    <div class="scroll" id="scoreboard" style="margin-top:8px"><span class="muted">No benchmark run yet.</span></div>
   </section>
 </main>
 
-<script type="importmap">
-{ "imports": { "three": "/static/vendor/three.module.min.js", "three/addons/": "/static/vendor/addons/" } }
-</script>
+<script type="importmap">{"imports": {"three": "/static/vendor/three.module.min.js", "three/addons/": "/static/vendor/addons/"}}</script>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -101,18 +127,16 @@ const num = (x, d = 1) => (x == null ? "–" : Number(x).toFixed(d));
 const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
 const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)));
 const loader = new STLLoader();
+const OURS = 0x19e76e, TRUTH = 0xa4b09f, RIVALS = [0x7f8f9a, 0xb0b8ae, 0x8aa0b8];
 
 class Viewer {
   constructor(el, color) {
-    this.el = el;
-    this.color = color;
-    this.part = null;
-    this.target = null;
+    this.el = el; this.color = color; this.part = null; this.target = null;
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    } catch (err) {  // no WebGL (locked-down or GPU-less browser): keep the race, scores and code working
+    } catch (err) {  // no WebGL: scores and code still work
       this.renderer = null;
-      el.insertAdjacentHTML("afterbegin", '<div class="muted" style="padding:12px">3D preview needs WebGL, which is off in this browser. Scores and code still work.</div>');
+      el.insertAdjacentHTML("afterbegin", '<div class="muted" style="padding:10px">3D preview needs WebGL.</div>');
       return;
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -122,9 +146,9 @@ class Viewer {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.autoRotate = true;
-    this.controls.autoRotateSpeed = 1.0;
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 1.8);
+    this.controls.autoRotateSpeed = 0.9;
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xd8e4d4, 2.0));
+    const key = new THREE.DirectionalLight(0xffffff, 1.5);
     key.position.set(2, 3, 4);
     this.scene.add(key);
     this.group = new THREE.Group();
@@ -136,23 +160,22 @@ class Viewer {
   }
   resize() {
     if (!this.renderer) return;
-    const w = this.el.clientWidth || 300, h = this.el.clientHeight || 240;
+    const w = this.el.clientWidth || 300, h = this.el.clientHeight || 210;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
   async geometry(key) {
-    const buf = await (await fetch(`/api/mesh/${key}`)).arrayBuffer();
-    const g = loader.parse(buf);
+    const g = loader.parse(await (await fetch(`/api/mesh/${key}`)).arrayBuffer());
     g.computeVertexNormals();
     return g;
   }
-  drop(obj) { if (obj) { this.group.remove(obj); obj.geometry.dispose(); } }
-  async setPart(key) {
+  drop(o) { if (o) { this.group.remove(o); o.geometry.dispose(); } }
+  async setPart(key, color) {
     if (!this.renderer) return;
     const g = await this.geometry(key);
     this.drop(this.part);
-    this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: this.color, metalness: 0.15, roughness: 0.45, side: THREE.DoubleSide }));
+    this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: color ?? this.color, metalness: 0.05, roughness: 0.55, side: THREE.DoubleSide }));
     this.group.add(this.part);
     this.fit();
   }
@@ -161,8 +184,8 @@ class Viewer {
     const g = await this.geometry(key);
     this.drop(this.target);
     this.target = solid
-      ? new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x9aa4b2, metalness: 0.1, roughness: 0.6 }))
-      : new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.7 }));
+      ? new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: TRUTH, metalness: 0.05, roughness: 0.6 }))
+      : new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0x6b7a6e, transparent: true, opacity: 0.55 }));
     this.group.add(this.target);
     this.fit();
   }
@@ -176,44 +199,105 @@ class Viewer {
     const d = (r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2))) * 1.05;
     this.controls.target.copy(c);
     this.camera.position.copy(c).add(new THREE.Vector3(1, 0.75, 1.15).normalize().multiplyScalar(d));
-    this.camera.near = d / 200;
-    this.camera.far = d * 200;
+    this.camera.near = d / 200; this.camera.far = d * 200;
     this.camera.updateProjectionMatrix();
   }
 }
 
-let CONFIG = null, EXAMPLES = [];
-const viewers = {};
-const targetViewer = new Viewer($("#target"), 0x9aa4b2);
-const COLORS = [0x60a5fa, 0xc084fc, 0xf472b6, 0xfbbf24];
+/* ---------- tabs ---------- */
+function showTab(name) {
+  for (const other of ["compare", "race"]) {
+    $("#" + other).hidden = other !== name;
+    $("#tab-" + other).classList.toggle("on", other === name);
+  }
+  Object.values(compareViewers).concat(Object.values(viewers)).forEach((v) => v.resize());
+}
+for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTab(name);
 
+/* ---------- compare: saved answers, built and shown side by side ---------- */
+let PARTS = [], compareViewers = {};
+
+async function loadParts() {
+  PARTS = await (await fetch("/api/parts")).json();
+  fillParts();
+  if (PARTS.length) showPart(new URLSearchParams(location.search).get("part") || pickDefault());
+}
+
+function fillParts() {
+  const only = $("#onlywins").checked;
+  const list = PARTS.filter((p) => !only || (p.ours_correct && p.frontier_correct === 0));
+  const groups = {};
+  for (const p of list) (groups[p.tier] ||= []).push(p);
+  $("#parts").innerHTML = Object.entries(groups).map(([tier, ps]) =>
+    `<optgroup label="${esc(tier)} (${ps.length})">` +
+    ps.map((p) => `<option value="${esc(p.id)}">${esc(p.title)} · ${p.n_faces} faces${p.n_parts > 1 ? ", " + p.n_parts + " parts" : ""}</option>`).join("") +
+    `</optgroup>`).join("");
+}
+
+function pickDefault() {
+  const wins = PARTS.filter((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple");
+  return (wins[0] || PARTS[0]).id;
+}
+
+async function showPart(id) {
+  $("#parts").value = id;
+  $("#partnote").textContent = "building…";
+  const d = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
+  $("#sheet").src = d.sheet;
+  const b = d.bbox;
+  $("#bboxline").textContent = `${d.title} · ${d.tier_faces} faces${d.n_parts > 1 ? ", " + d.n_parts + " parts" : ""}` +
+    (b ? ` · bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "");
+  $("#partnote").textContent = "answers from the saved benchmark runs";
+  compareViewers = {};
+  const lanes = d.lanes.filter((l) => !(l.ours && l.best_of === 1) || $("#single").checked);
+  const cards = [{ ...d.reference, key: "reference", truth: true }, ...lanes];
+  $("#results").innerHTML = cards.map((c, i) => `
+    <div class="card ${c.truth ? "truth" : c.ours ? "ours" : ""}">
+      <div class="head"><h3>${esc(c.label)}</h3>${c.truth ? '<span class="pill">ground truth</span>'
+        : `<span class="pill ${c.success ? "ok" : "no"}">${c.success ? "✓ correct" : "✗ wrong"}</span>`}</div>
+      <div class="slug">${esc(c.model || "dataset reference program")}</div>
+      <div class="viewer" data-v="${i}">${c.truth ? '<span class="hint">reference solid</span>' : '<span class="hint">prediction over reference (edges)</span>'}</div>
+      <div class="stats">${c.truth ? `${c.stats ? c.stats.n_faces + " faces" : ""}`
+        : `IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)} · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} tok`}</div>
+      ${c.truth || c.mesh ? "" : `<div class="stats">${esc((c.error || "did not build").slice(0, 90))}</div>`}
+      <details><summary>code</summary><pre>${esc(c.code || "")}</pre></details>
+    </div>`).join("");
+  $("#results").querySelectorAll("[data-v]").forEach((el, i) => {
+    const c = cards[i];
+    const v = new Viewer(el, c.truth ? TRUTH : c.ours ? OURS : RIVALS[i % RIVALS.length]);
+    compareViewers[i] = v;
+    if (c.truth) { if (c.mesh) v.setPart(c.mesh, TRUTH); return; }
+    if (d.reference.mesh) v.setTarget(d.reference.mesh);
+    if (c.mesh) v.setPart(c.mesh);
+  });
+}
+
+$("#parts").onchange = (e) => showPart(e.target.value);
+$("#single").onchange = () => showPart($("#parts").value);
+$("#onlywins").onchange = () => { fillParts(); showPart($("#parts").value || pickDefault()); };
+$("#shuffle").onclick = () => {
+  const opts = [...$("#parts").options];
+  if (opts.length) showPart(opts[Math.floor(Math.random() * opts.length)].value);
+};
+
+/* ---------- live race ---------- */
+let CONFIG = null, EXAMPLES = [], currentExample = null;
+const viewers = {};
+const targetViewer = new Viewer($("#target"), TRUTH);
 function card(key) { return document.getElementById("lane-" + key); }
 function setv(key, field, value) { const el = card(key)?.querySelector(`[data-k="${field}"]`); if (el) el.textContent = value; }
 function pill(key, cls, text) { const el = card(key)?.querySelector('[data-k="pill"]'); if (el) { el.className = "pill " + cls; el.textContent = text; } }
 
-async function init() {
-  CONFIG = await (await fetch("/api/config")).json();
-  if (CONFIG.default_modality) $("#modality").value = CONFIG.default_modality;
-  showInput();
-  buildLanes(CONFIG.lanes);
-  EXAMPLES = await (await fetch("/api/examples")).json();
-  EXAMPLES.forEach((e, idx) => $("#examples").insertAdjacentHTML("beforeend",
-    `<option value="${idx}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
-  loadScoreboard();
-}
-
 function buildLanes(laneList) {
-  const lanes = $("#lanes");
-  lanes.innerHTML = "";
+  $("#lanes").innerHTML = "";
   for (const k in viewers) delete viewers[k];
   let i = 0;
   for (const l of laneList) {
     const el = document.createElement("div");
-    el.className = "card lane" + (l.dedicated ? " ours" : "");
+    el.className = "card" + (l.dedicated ? " ours" : "");
     el.id = "lane-" + l.key;
-    const badge = l.dedicated ? "ours · post-trained on Baseten" : `Baseten Model API${l.effort ? " · " + l.effort + " effort" : ""}`;
     el.innerHTML = `
-      <h2><span>${esc(l.label)}</span><span class="badge">${esc(badge)}</span></h2>
+      <div class="head"><h3>${esc(l.label)}</h3><span class="pill">${l.dedicated ? "ours · Baseten" : "Model API" + (l.effort ? " · " + l.effort : "")}</span></div>
       <div class="slug">${esc(l.model)}</div>
       <div class="meters">
         <div class="m"><b data-k="ttft">–</b><span>first token s</span></div>
@@ -221,56 +305,94 @@ function buildLanes(laneList) {
         <div class="m"><b data-k="tok">–</b><span>tokens</span></div>
         <div class="m"><b data-k="cost">–</b><span>${l.dedicated ? "$/part (GPU)" : "$/part"}</span></div>
       </div>
-      <div class="status" data-k="status">idle</div>
-      <div class="viewer" data-k="viewer"><span class="hint">prediction (solid) over target (edges)</span></div>
+      <div class="stats" data-k="status">idle</div>
+      <div class="viewer" data-k="viewer"><span class="hint">prediction over reference (edges)</span></div>
       <div><span class="pill" data-k="pill">waiting</span></div>
       <details><summary>code</summary><pre data-k="code"></pre></details>`;
-    lanes.appendChild(el);
-    viewers[l.key] = new Viewer(el.querySelector('[data-k="viewer"]'), l.dedicated ? 0x4ade80 : COLORS[i++ % COLORS.length]);
+    $("#lanes").appendChild(el);
+    viewers[l.key] = new Viewer(el.querySelector('[data-k="viewer"]'), l.dedicated ? OURS : RIVALS[i++ % RIVALS.length]);
   }
 }
 
-let currentExample = null;
 function showInput() {
   const image = $("#modality").value === "image";
-  $("#spec").style.display = image ? "none" : "";
-  $("#sheetbox").style.display = image ? "" : "none";
+  $("#spec").hidden = image;
+  $("#sheetbox").hidden = !image;
   $("#note").textContent = image
-    ? "Every model gets the same drawing sheet and bounding box. Parts are held out: never seen in training."
-    : "Every model gets the same written spec. Pick a held-out part or write your own.";
-  if (image && !(currentExample && currentExample.sheet)) {
-    $("#sheet").removeAttribute("src");
-    $("#sheet").style.display = "none";
-    $("#bboxline").textContent = "Pick a held-out part to see its drawing sheet.";
-  }
+    ? "Every model gets the same sheet and bounding box. Parts are held out."
+    : "Every model gets the same written spec.";
+  $("#rsheet").hidden = !(image && currentExample && currentExample.sheet);
   if (image && currentExample && currentExample.sheet) {
-    $("#sheet").src = currentExample.sheet;
-    $("#sheet").style.display = "";
+    $("#rsheet").src = currentExample.sheet;
     const b = currentExample.bbox;
-    $("#bboxline").textContent = b ? `Stated with the sheet: bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "";
+    $("#rbbox").textContent = b ? `bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "";
   }
 }
 $("#modality").onchange = showInput;
 $("#examples").onchange = (e) => {
-  const x = EXAMPLES[e.target.value];
-  currentExample = x || null;
-  if (x) $("#spec").value = x.spec;
+  currentExample = EXAMPLES[e.target.value] || null;
+  if (currentExample) $("#spec").value = currentExample.spec;
   showInput();
 };
-$("#spec").oninput = () => {
-  if (currentExample && $("#spec").value !== currentExample.spec) {
-    currentExample = null;
-    $("#note").textContent = "Custom spec: parts are built and shown, but there is no reference to score against.";
+
+async function handle(ev, state) {
+  if (ev.type === "target") {
+    await targetViewer.setTarget(ev.mesh, true);
+    $("#tstats").textContent = `· ${ev.stats.n_faces} faces`;
+    for (const k in viewers) viewers[k].setTarget(ev.mesh);
+    return;
   }
-};
+  const s = state[ev.lane];
+  if (!s) return;
+  if ((ev.type === "reasoning" || ev.type === "content") && s.ttft == null) {
+    s.ttft = (performance.now() - s.t0) / 1000;
+    setv(ev.lane, "ttft", s.ttft.toFixed(2));
+  }
+  if (ev.type === "reasoning") {
+    s.reasoning += ev.text.length;
+    setv(ev.lane, "status", `thinking… (~${Math.round(s.reasoning / 4)} tokens)`);
+  } else if (ev.type === "content") {
+    s.code += ev.text;
+    setv(ev.lane, "status", "writing code…");
+    setv(ev.lane, "code", s.code);
+  } else if (ev.type === "status") {
+    setv(ev.lane, "status", ev.text);
+  } else if (ev.type === "restart") {
+    s.code = ""; s.reasoning = 0;
+    setv(ev.lane, "status", "connection dropped, retrying…");
+  } else if (ev.type === "generated") {
+    s.done = true;
+    setv(ev.lane, "e2e", num(ev.metrics.e2e_s, 1));
+    setv(ev.lane, "tok", ev.metrics.output_tokens ?? "–");
+    setv(ev.lane, "cost", money(ev.metrics.cost_usd));
+    setv(ev.lane, "status", ev.error ? "API error: " + ev.error : "building the solid…");
+  } else if (ev.type === "graded") {
+    s.done = true;
+    if (ev.code) setv(ev.lane, "code", ev.code);
+    if (!ev.runs) {
+      pill(ev.lane, "no", "✗ " + (ev.error || "failed").slice(0, 60));
+      setv(ev.lane, "status", "code did not produce a solid");
+      return;
+    }
+    await viewers[ev.lane].setPart(ev.mesh);
+    if (ev.iou_aligned == null) pill(ev.lane, "", `built · ${ev.stats?.n_faces ?? "?"} faces`);
+    else if (ev.iou_aligned >= 0.9) pill(ev.lane, "ok", `✓ correct · IoU ${ev.iou_aligned.toFixed(3)}`);
+    else pill(ev.lane, "no", `✗ wrong part · IoU ${ev.iou_aligned.toFixed(3)}`);
+    setv(ev.lane, "status", ev.candidates ? `picked from ${ev.candidates} by render-check (${(ev.render_score ?? 0).toFixed(3)})` : "done");
+  } else if (ev.type === "error") {
+    s.done = true;
+    pill(ev.lane, "no", "✗ " + ev.error.slice(0, 60));
+  }
+}
 
 $("#go").onclick = async () => {
   const spec = $("#spec").value.trim();
-  if ($("#modality").value === "image" && !(currentExample && currentExample.sheet)) { $("#note").textContent = "Drawing-sheet mode needs a held-out part from the list."; return; }
-  if ($("#modality").value === "text" && !spec) return;
+  const image = $("#modality").value === "image";
+  if (image && !(currentExample && currentExample.sheet)) { $("#note").textContent = "Pick a held-out part first."; return; }
+  if (!image && !spec) return;
   const state = {};
   targetViewer.clear();
-  $("#tstats").textContent = currentExample ? "loading…" : "(custom spec: no reference)";
+  $("#tstats").textContent = "";
   for (const l of CONFIG.lanes) {
     state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
     for (const k of ["ttft", "e2e", "tok", "cost"]) setv(l.key, k, "–");
@@ -299,7 +421,7 @@ $("#go").onclick = async () => {
       while ((i = buf.indexOf("\n\n")) >= 0) {
         const chunk = buf.slice(0, i);
         buf = buf.slice(i + 2);
-        if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6)), state);
+        if (chunk.startsWith("data: ")) await handle(JSON.parse(chunk.slice(6)), state);
       }
     }
   } finally {
@@ -308,112 +430,35 @@ $("#go").onclick = async () => {
   }
 };
 
-async function handle(ev, state) {
-  if (ev.type === "target") {
-    await targetViewer.setTarget(ev.mesh, true);
-    $("#tstats").textContent = `${ev.stats.n_faces} faces`;
-    for (const k in viewers) viewers[k].setTarget(ev.mesh);
-    return;
-  }
-  const s = state[ev.lane];
-  if (!s) return;
-  if ((ev.type === "reasoning" || ev.type === "content") && s.ttft == null) {
-    s.ttft = (performance.now() - s.t0) / 1000;
-    setv(ev.lane, "ttft", s.ttft.toFixed(2));
-  }
-  if (ev.type === "reasoning") {
-    s.reasoning += ev.text.length;
-    setv(ev.lane, "status", `thinking… (~${Math.round(s.reasoning / 4)} tokens)`);
-  } else if (ev.type === "content") {
-    s.code += ev.text;
-    setv(ev.lane, "status", "writing code…");
-    setv(ev.lane, "code", s.code);
-  } else if (ev.type === "status") {
-    setv(ev.lane, "status", ev.text);
-  } else if (ev.type === "restart") {
-    s.code = ""; s.reasoning = 0;
-    setv(ev.lane, "status", "connection dropped, retrying…");
-  } else if (ev.type === "generated") {
-    const m = ev.metrics;
-    s.done = true;
-    setv(ev.lane, "e2e", num(m.e2e_s, 1));
-    setv(ev.lane, "tok", m.output_tokens ?? "–");
-    setv(ev.lane, "cost", money(m.cost_usd));
-    setv(ev.lane, "status", ev.error ? "API error: " + ev.error : "building the solid…");
-  } else if (ev.type === "graded") {
-    s.done = true;
-    if (ev.code) setv(ev.lane, "code", ev.code);
-    if (!ev.runs) {
-      pill(ev.lane, "no", "✗ " + (ev.error || "failed").slice(0, 90));
-      setv(ev.lane, "status", "code did not produce a solid");
-      return;
-    }
-    await viewers[ev.lane].setPart(ev.mesh);
-    if (ev.iou_aligned == null) {
-      pill(ev.lane, "warn", `built · ${ev.stats?.n_faces ?? "?"} faces`);
-      setv(ev.lane, "status", "custom spec: no reference to score against");
-    } else if (ev.iou_aligned >= 0.9) {
-      pill(ev.lane, "ok", `✓ matches target · IoU ${ev.iou_aligned.toFixed(3)}`);
-      setv(ev.lane, "status", ev.candidates ? `correct part · picked from ${ev.candidates} by render-check (${(ev.render_score ?? 0).toFixed(3)})` : "correct part");
-    } else {
-      pill(ev.lane, "no", `✗ wrong part · IoU ${ev.iou_aligned.toFixed(3)}`);
-      setv(ev.lane, "status", ev.candidates ? `best of ${ev.candidates} by render-check still wrong` : "builds, but not the specified part");
-    }
-  } else if (ev.type === "error") {
-    s.done = true;
-    pill(ev.lane, "no", "✗ " + ev.error.slice(0, 90));
-  }
-}
-
+/* ---------- benchmark table ---------- */
 async function loadScoreboard() {
   const sb = await (await fetch("/api/scoreboard")).json();
   if (!sb || !sb.lanes) return;
-  $("#sbmeta").textContent = `· held-out parts never seen in training · ${sb.created}`;
-  const tier = (l, name) => (l.tiers && l.tiers[name] ? pct(l.tiers[name].success) + ` <span class="muted">(n=${l.tiers[name].n})</span>` : "–");
-  const rows = sb.lanes.map((l) => `<tr>
-      <td>${esc(l.label || l.lane)} <span class="muted">${esc(l.model)}${l.reasoning_effort ? " · " + esc(l.reasoning_effort) : ""}${l.best_of > 1 ? " · best of " + l.best_of : ""}${l.modality ? " · " + (l.modality === "image" ? "sheets" : "text") : ""}</span></td>
-      <td><b>${pct(l.success)}</b> <span class="muted">[${pct(l.success_ci95[0])}, ${pct(l.success_ci95[1])}]</span></td>
-      <td>${tier(l, "medium (7-12)")}</td><td>${tier(l, "complex (>=13)")}</td><td>${tier(l, "multi-part")}</td>
-      <td>${pct(l.run_rate)}</td>
-      <td>${num(l.latency_p50, 1)} / ${num(l.latency_p95, 1)}</td>
-      <td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td></tr>`).join("");
-  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Correct (IoU ≥ 0.9) [95% CI]</th><th>Medium (7–12 faces)</th><th>Complex (≥ 13)</th>
-    <th>Multi-part</th><th>Code runs</th><th>Latency p50 / p95 s</th><th>$ / 1K parts</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("#sbmeta").textContent = `· ${sb.n} held-out parts, never seen in training`;
+  const tier = (l, k) => (l.tiers && l.tiers[k] ? pct(l.tiers[k].success) : "–");
+  $("#scoreboard").innerHTML = `<table><thead><tr>
+      <th>Model</th><th>Correct [95% CI]</th><th>Simple</th><th>Medium</th><th>Complex</th><th>Multi-part</th>
+      <th>Latency p50</th><th>$ / 1K parts</th></tr></thead><tbody>` +
+    sb.lanes.map((l) => `<tr class="${l.lane === "specialist" ? "ours" : ""}">
+      <td>${esc(l.label)}${l.best_of > 1 ? " · best of " + l.best_of : ""}</td>
+      <td>${pct(l.success)} <span class="muted">[${pct(l.success_ci95[0])}, ${pct(l.success_ci95[1])}]</span></td>
+      <td>${tier(l, "simple (<=6 faces)")}</td><td>${tier(l, "medium (7-12)")}</td>
+      <td>${tier(l, "complex (>=13)")}</td><td>${tier(l, "multi-part")}</td>
+      <td>${num(l.latency_p50, 1)} s</td><td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td>
+    </tr>`).join("") + "</tbody></table>";
 }
 
-async function playReplay(name, instant) {
-  const rp = await (await fetch(`/api/replay/${encodeURIComponent(name)}`)).json();
-  CONFIG = { ...CONFIG, lanes: rp.lanes };
-  buildLanes(rp.lanes);
-  const state = {};
-  for (const l of CONFIG.lanes) state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
-  const ex = EXAMPLES.find((e) => e.id === rp.example_id) || (rp.example_id && { id: rp.example_id, spec: rp.spec || "", sheet: rp.sheet, bbox: rp.bbox });
-  if (ex) { currentExample = ex; $("#spec").value = ex.spec; }
-  $("#modality").value = rp.modality;
-  showInput();
-  $("#note").textContent = rp.source
-    ? `Replay: each model's answer from the ${rp.source}, played at its measured speed (no live calls).`
-    : `Replay of a recorded race (${rp.modality === "image" ? "drawing sheet" : "written spec"}).`;
-  const t0 = performance.now();
-  for (const ev of rp.events) {
-    if (!instant) { const wait = ev.t * 1000 - (performance.now() - t0); if (wait > 0) await new Promise((r) => setTimeout(r, wait)); }
-    if (ev.lane && state[ev.lane] && (ev.type === "generated" || ev.type === "graded")) setv(ev.lane, "e2e", ev.t.toFixed(1));
-    await handle(ev, state);
-  }
-}
-
-init().then(() => {
-  const params = new URLSearchParams(location.search);
-  if (params.get("replay")) { playReplay(params.get("replay"), params.get("instant") === "1"); return; }
-  const auto = new URLSearchParams(location.search).get("autorun");
-  const mode = new URLSearchParams(location.search).get("mode");
-  if (mode) { $("#modality").value = mode; }
-  if (auto !== null && EXAMPLES[auto]) {
-    $("#examples").value = auto;
-    $("#examples").onchange({ target: { value: auto } });
-    $("#go").onclick();
-  }
-});
+/* ---------- start ---------- */
+CONFIG = await (await fetch("/api/config")).json();
+$("#modality").value = CONFIG.default_modality || "image";
+buildLanes(CONFIG.lanes);
+EXAMPLES = await (await fetch("/api/examples")).json();
+EXAMPLES.forEach((e, i) => $("#examples").insertAdjacentHTML("beforeend",
+  `<option value="${i}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
+showInput();
+await loadParts();
+loadScoreboard();
+if (new URLSearchParams(location.search).get("tab") === "race") showTab("race");
 </script>
 </body>
 </html>

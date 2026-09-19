@@ -129,6 +129,21 @@ Each sheet is rendered from the part's own reference program, so the drawing and
 the dataset's text specs are wrong. Training targets are the reference programs with trailing display comments removed;
 loss is on the code only.
 
+## Demo
+
+```sh
+uv run python -m uvicorn app.server:app --port 8000     # http://127.0.0.1:8000
+uv run python deploy/test_vlm.py                        # prewarm the endpoint before judging (it scales to zero)
+```
+
+![demo](docs/demo.png)
+
+- **Compare** (offline): pick any held-out part and see the drawing sheet, the dataset's reference solid, and each
+  model's answer built and overlaid on it, with IoU, time, cost and the code. Answers come from the saved benchmark
+  runs, so this works with no API calls. Filter to the parts both frontier models get wrong.
+- **Live race**: the same part sent to our deployment and to Kimi K3 and GLM-5.3 Flash at once, streaming, then built
+  and scored. Our lane samples 8 programs and keeps the best render-and-compare match.
+
 ## Quickstart
 
 ```bash

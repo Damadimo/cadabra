@@ -29,7 +29,7 @@ from cadabra.cad import prompts
 from cadabra.cad.bench import FATAL, infra_failed, resolve_lanes
 from cadabra.cad.render import image_path
 from cadabra.cad.pool import CadPool
-from cadabra.config import ROOT, Lane
+from cadabra.config import PRETTY, ROOT, Lane
 from cadabra.data import read_jsonl
 from cadabra.llm import complete, stream_chat
 
@@ -62,6 +62,38 @@ def saved_answers() -> dict[tuple[str, str], dict]:
 
 
 SAVED = saved_answers()
+
+
+def compare_runs() -> dict[str, list[dict]]:
+    """part id -> one entry per model, from saved benchmark runs: no API call, so the demo works offline.
+    COMPARE_RUNS lists run tags, newest of each; a lane's newest run wins."""
+    out: dict[str, dict[tuple, dict]] = {}
+    for tag in filter(None, os.getenv("COMPARE_RUNS", "sota-img,sota-img-rest,ours2-img,ours2-img-bo8").split(",")):
+        found = sorted((ROOT / "runs").glob(f"*_{tag}"), key=lambda p: p.name)
+        if not found:
+            continue
+        meta = json.loads((found[-1] / "summary.json").read_text())
+        best_of = meta.get("best_of", 1)
+        labels = {l["lane"]: l for l in meta["lanes"]}
+        for r in read_jsonl(found[-1] / "results.jsonl"):
+            if infra_failed(r) or r["lane"] in SKIP_LANES:
+                continue
+            lane = labels.get(r["lane"], {})
+            effort = lane.get("reasoning_effort")
+            label = lane.get("label") if lane.get("label") not in (None, r["lane"]) else PRETTY.get(r["model"], r["lane"]) + (f" ({effort})" if effort else "")
+            out.setdefault(r["id"], {})[(r["lane"], best_of)] = {
+                "key": f"{r['lane']}#{best_of}", "lane": r["lane"], "best_of": best_of, "label": label + (f" · best of {best_of}" if best_of > 1 else ""),
+                "model": r["model"], "ours": r["lane"] == "specialist", "run": found[-1].name,
+                "success": bool(r["success"]), "runs": bool(r["runs"]), "iou_aligned": r.get("iou_aligned"),
+                "e2e_s": r.get("e2e_s"), "cost_usd": r.get("cost_usd"), "output_tokens": r.get("output_tokens"),
+                "error": r.get("error"), "code": r.get("code"),
+            }
+    return {i: sorted(v.values(), key=lambda e: (0 if e["ours"] else 1, -e["best_of"], e["label"])) for i, v in out.items()}
+
+
+SKIP_LANES = {"glm-5.3@high", "base-4b"}  # GLM-5.3's model card is text-only; the untuned base is in the scoreboard
+COMPARE = compare_runs()
+_COMPARE_CACHE: OrderedDict[str, dict] = OrderedDict()
 MESHES: OrderedDict[str, bytes] = OrderedDict()
 POOL: CadPool | None = None
 REPLAYS = ROOT / "data" / "demo" / "replays"  # recorded races: offline fallback for the live demo
@@ -155,6 +187,63 @@ def examples() -> list[dict]:
             out.append({"id": i, "title": title_of(rec), "n_parts": rec["n_parts"], "n_faces": rec.get("n_faces"), "spec": rec["spec"],
                         "sheet": f"/api/sheet/{i}" if i in SHEETS else None, "bbox": SHEETS.get(i, {}).get("bbox")})
     return out
+
+
+@app.get("/api/parts")
+def parts() -> list[dict]:
+    """Held-out parts every compared model answered, grouped by complexity."""
+    def tier(rec):
+        if rec["n_parts"] > 1:
+            return "multi-part"
+        n = rec.get("n_faces") or 0
+        return "simple" if n <= 6 else "medium" if n <= 12 else "complex"
+
+    out = []
+    for i, lanes in COMPARE.items():
+        rec = BENCH.get(i)
+        if not rec or i not in SHEETS or len(lanes) < 2:
+            continue
+        ours = next((l for l in lanes if l["ours"]), None)
+        out.append({"id": i, "title": title_of(rec), "tier": tier(rec), "n_faces": rec.get("n_faces"), "n_parts": rec["n_parts"],
+                    "models": len(lanes), "ours_correct": bool(ours and ours["success"]),
+                    "frontier_correct": sum(1 for l in lanes if not l["ours"] and l["success"])})
+    return sorted(out, key=lambda r: (["simple", "medium", "complex", "multi-part"].index(r["tier"]), -(r["n_faces"] or 0), r["id"]))
+
+
+@app.get("/api/compare/{rec_id}")
+async def compare(rec_id: str) -> dict:
+    """The input sheet, the reference solid, and each model's saved answer built into a solid."""
+    if rec_id not in COMPARE or rec_id not in BENCH:
+        raise HTTPException(404, "no saved answers for this part")
+    if rec_id in _COMPARE_CACHE and all(k in MESHES for k in _COMPARE_CACHE[rec_id]["meshes"]):
+        return _COMPARE_CACHE[rec_id]["payload"]
+    rec = BENCH[rec_id]
+    gold = rec["gold_code"]
+    target = await asyncio.to_thread(POOL.run, code=gold, want_mesh=True, want_chamfer=False)
+    lanes, keys = [], []
+    for entry in COMPARE[rec_id]:
+        out = {**entry}
+        if entry.get("code") and entry["runs"]:
+            res = await asyncio.to_thread(POOL.run, code=entry["code"], gold_code=gold, want_mesh=True, want_chamfer=False)
+            if res.get("runs"):
+                out["mesh"] = store(res.get("aligned_mesh_stl") or res["mesh_stl"])
+                out["stats"] = res.get("stats")
+                keys.append(out["mesh"])
+            else:
+                out["error"] = res.get("error")
+        lanes.append(out)
+    payload = {
+        "id": rec_id, "title": title_of(rec), "tier_faces": rec.get("n_faces"), "n_parts": rec["n_parts"],
+        "sheet": f"/api/sheet/{rec_id}", "bbox": SHEETS.get(rec_id, {}).get("bbox"), "spec": rec["spec"],
+        "reference": {"label": "Reference (dataset)", "mesh": store(target["mesh_stl"]) if target.get("runs") else None,
+                      "stats": target.get("stats"), "code": gold},
+        "lanes": lanes,
+    }
+    keys.append(payload["reference"]["mesh"])
+    _COMPARE_CACHE[rec_id] = {"payload": payload, "meshes": [k for k in keys if k]}
+    while len(_COMPARE_CACHE) > 40:
+        _COMPARE_CACHE.popitem(last=False)
+    return payload
 
 
 @app.get("/api/sheet/{rec_id}")
