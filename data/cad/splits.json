@@ -10,5 +10,7 @@
   "source_overlap_train_bench": 0,
   "dropped_same_geometry_as_bench": 1886,
   "train_vlm_extra": 12000,
-  "train_vlm_extra_complex_share": 0.7
+  "train_vlm_extra_complex_share": 0.7,
+  "train_vlm_extra2": 12868,
+  "train_vlm_extra2_complex_13plus": 4792
 }

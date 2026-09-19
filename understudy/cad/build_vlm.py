@@ -41,6 +41,7 @@ def main() -> None:
     ap.add_argument("--limit", type=int)
     ap.add_argument("--seed", type=int, default=11)
     ap.add_argument("--no-extra", action="store_true", help="only train_high parts (skip the train_middle extras)")
+    ap.add_argument("--extras", default="train_vlm_extra,train_vlm_extra2", help="extra splits to add (unrendered rows are skipped)")
     args = ap.parse_args()
 
     index = json.loads((IMAGES / "index.json").read_text())
@@ -48,7 +49,9 @@ def main() -> None:
     shot_ids = {r["id"] for r in read_jsonl(ROOT / "data" / "cad" / "shots.jsonl")}
     pool = read_jsonl(ROOT / "data" / "cad" / "train.jsonl")
     if not args.no_extra:
-        pool += read_jsonl(ROOT / "data" / "cad" / "train_vlm_extra.jsonl")
+        for name in filter(None, args.extras.split(",")):
+            path = ROOT / "data" / "cad" / f"{name}.jsonl"
+            pool += read_jsonl(path) if path.exists() else []
     recs = [
         r
         for r in pool[: args.limit]

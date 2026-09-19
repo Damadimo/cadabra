@@ -250,6 +250,9 @@ async def run(args) -> None:
         records = [r for r in records if r["n_parts"] > 1]
     if args.min_faces:
         records = [r for r in records if (r.get("n_faces") or 0) >= args.min_faces]
+    if args.exclude:
+        seen = {row["id"] for d in args.exclude.split(",") for row in read_jsonl(ROOT / "runs" / d / "results.jsonl")}
+        records = [r for r in records if r["id"] not in seen]
     records = sample(records, args.n, args.seed)
     shots = read_jsonl(DATA / "shots.jsonl")[: args.shots] if args.shots else []
     if args.modality == "image" and shots:
@@ -315,6 +318,7 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.7, help="sampling temperature for --best-of")
     ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
     ap.add_argument("--min-faces", type=int, default=0, help="only parts with at least this many faces")
+    ap.add_argument("--exclude", default="", help="comma-separated run dirs under runs/: skip parts already graded there")
     ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
     ap.add_argument("--tag", default="bench")
     asyncio.run(run(ap.parse_args()))

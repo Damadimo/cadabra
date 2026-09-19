@@ -1,8 +1,10 @@
 """Merge benchmark runs into one table, split by part complexity (for README/Devpost).
 
-  uv run python scripts/leaderboard.py runs/<run1> runs/<run2> ...     # or: --latest pilot,ours
-  uv run python scripts/leaderboard.py --modality image runs/...
+  uv run python scripts/leaderboard.py runs/<run1> runs/<run2> ...     # or: --latest sota-img,ours-img
+  uv run python scripts/leaderboard.py --latest sota-img,sota-img-rest-flash --out-json data/demo/scoreboard.json
 
+Rows of the same lane, input modality and best-of setting are pooled across runs (a part graded twice counts once,
+newest run wins), so a 200-part run plus a 300-part run of the other parts reads as one 500-part result.
 Tiers by the reference solid's face count: simple (<= 6 faces: boxes, cylinders), medium (7-12), complex (>= 13),
 plus multi-part. Success = code runs and aligned IoU >= 0.9. CIs are bootstrap 95%.
 """
@@ -35,56 +37,78 @@ def cell(rows: list[dict]) -> str:
     return f"{100 * mean(s):.1f}% [{100 * lo:.0f}–{100 * hi:.0f}] (n={len(rows)})"
 
 
+def pctl(xs: list[float], q: float) -> float | None:
+    xs = sorted(x for x in xs if x is not None)
+    return xs[min(len(xs) - 1, int(q / 100 * len(xs)))] if xs else None
+
+
+def load(dirs: list[Path]) -> dict:
+    """(modality, lane, best_of) -> {"lane": lane summary of the newest run, "runs": [...], "rows": {id: row}}."""
+    groups: dict[tuple, dict] = {}
+    for d in sorted(dirs, key=lambda d: json.loads((d / "summary.json").read_text())["created"]):
+        meta = json.loads((d / "summary.json").read_text())
+        modality, best_of = meta.get("modality", "text"), meta.get("best_of", 1)
+        by_lane = {s["lane"]: s for s in meta["lanes"]}
+        for r in read_jsonl(d / "results.jsonl"):
+            g = groups.setdefault((modality, r["lane"], best_of), {"lane": by_lane[r["lane"]], "runs": {}, "rows": {}, "shots": meta["shots"]})
+            g["lane"] = by_lane[r["lane"]]
+            g["runs"][d.name] = by_lane[r["lane"]]
+            g["rows"][r["id"]] = {**r, "_run": d.name}
+    return groups
+
+
+def entry(key: tuple, g: dict) -> dict:
+    modality, lane_key, best_of = key
+    rows = list(g["rows"].values())
+    lane = g["lane"]
+    succ = [1.0 if r["success"] else 0.0 for r in rows]
+    # $ per 1K parts: n-weighted over runs (dedicated lanes are priced per run from GPU time, API lanes per token)
+    per_run = [(s["cost_per_1k_usd"], sum(r["_run"] == run for r in rows)) for run, s in g["runs"].items() if s.get("cost_per_1k_usd") is not None]
+    cost = sum(c * n for c, n in per_run) / sum(n for _, n in per_run) if per_run and sum(n for _, n in per_run) else None
+    tiers = {}
+    for name, f in TIERS.items():
+        s_ = [1.0 if r["success"] else 0.0 for r in rows if f(r)]
+        tiers[name] = {"n": len(s_), "success": mean(s_) if s_ else None, "ci95": list(bootstrap_ci(s_)) if s_ else [None, None]}
+    effort = lane.get("reasoning_effort")
+    label = lane.get("label") or PRETTY.get(lane["model"], lane_key) + (f" ({effort})" if effort else "")
+    return {
+        "lane": lane_key, "label": label, "model": lane["model"], "reasoning_effort": effort,
+        "modality": modality, "best_of": best_of, "shots": g["shots"], "runs": sorted(g["runs"]), "n": len(rows),
+        "success": mean(succ), "success_ci95": list(bootstrap_ci(succ)),
+        "success_iou95": mean(1.0 if r["runs"] and (r["iou_aligned"] or 0) >= 0.95 else 0.0 for r in rows),
+        "run_rate": mean(1.0 if r["runs"] else 0.0 for r in rows),
+        "mean_iou_aligned": mean((r["iou_aligned"] or 0.0) if r["runs"] else 0.0 for r in rows),
+        "oracle_success": mean(1.0 if (r.get("oracle_iou") or 0) >= 0.9 else 0.0 for r in rows) if "oracle_iou" in rows[0] else None,
+        "latency_p50": pctl([r["e2e_s"] for r in rows], 50), "latency_p95": pctl([r["e2e_s"] for r in rows], 95),
+        "cost_per_1k_usd": cost, "tiers": tiers,
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("runs", nargs="*", type=Path)
     ap.add_argument("--latest", default="", help="comma-separated tags: use the newest run for each")
     ap.add_argument("--out-json", type=Path, help="also write the demo scoreboard (e.g. data/demo/scoreboard.json)")
     args = ap.parse_args()
-    dirs = list(args.runs)
+    dirs = [d if d.is_absolute() else ROOT / d for d in args.runs]
     for tag in filter(None, args.latest.split(",")):
-        found = sorted((ROOT / "runs").glob(f"*_{tag}"), key=lambda p: p.stat().st_mtime)
+        found = sorted((ROOT / "runs").glob(f"*_{tag}"), key=lambda p: p.name)
         if found:
             dirs.append(found[-1])
-    rows, metas = [], {}
-    for d in dirs:
-        d = d if d.is_absolute() else ROOT / d
-        meta = json.loads((d / "summary.json").read_text())
-        for r in read_jsonl(d / "results.jsonl"):
-            r["_run"] = d.name
-            r["_modality"] = meta.get("modality", "text")
-            rows.append(r)
-        metas[d.name] = meta
-    lanes = sorted({(r["_modality"], r["lane"], r["model"]) for r in rows})
-    head = "| Input | Lane | " + " | ".join(TIERS) + " | Latency p50 (s) | $ / 1K parts |"
-    print(head)
-    print("|" + "---|" * (len(TIERS) + 4))
-    for modality, lane, model in lanes:
-        mine = [r for r in rows if r["lane"] == lane and r["_modality"] == modality]
-        lat = sorted(r["e2e_s"] for r in mine)
-        costs = [r["cost_usd"] for r in mine if r.get("cost_usd") is not None]
-        cost = f"${1000 * mean(costs):.2f}" if costs else "–"
-        print(f"| {modality} | {lane} | " + " | ".join(cell([r for r in mine if f(r)]) for f in TIERS.values())
-              + f" | {lat[len(lat) // 2]:.1f} | {cost} |")
-    print("\nRuns: " + ", ".join(f"{k} ({v['n']} parts, shots {v['shots']})" for k, v in metas.items()))
+    groups = load(dirs)
+    board = sorted((entry(k, g) for k, g in groups.items()), key=lambda e: (e["modality"], -e["success"]))
+    print("| Input | Lane | Best of | " + " | ".join(TIERS) + " | Latency p50 (s) | $ / 1K parts |")
+    print("|" + "---|" * (len(TIERS) + 5))
+    for e in board:
+        rows = list(groups[(e["modality"], e["lane"], e["best_of"])]["rows"].values())
+        cost = "–" if e["cost_per_1k_usd"] is None else f"${e['cost_per_1k_usd']:.2f}"
+        print(f"| {e['modality']} | {e['label']} | {e['best_of']} | " + " | ".join(cell([r for r in rows if f(r)]) for f in TIERS.values())
+              + f" | {e['latency_p50']:.1f} | {cost} |")
+    print("\nRuns: " + ", ".join(sorted({run for e in board for run in e["runs"]})))
     if args.out_json:
-        board = []
-        for run, meta in metas.items():
-            for lane in meta["lanes"]:
-                mine = [r for r in rows if r["_run"] == run and r["lane"] == lane["lane"]]
-                tiers = {}
-                for name, f in TIERS.items():
-                    part = [r for r in mine if f(r)]
-                    s_ = [1.0 if r["success"] else 0.0 for r in part]
-                    tiers[name] = {"n": len(part), "success": mean(s_) if s_ else None, "ci95": list(bootstrap_ci(s_)) if s_ else [None, None]}
-                if "label" not in lane:
-                    effort = lane.get("reasoning_effort")
-                    lane = {**lane, "label": PRETTY.get(lane["model"], lane["lane"]) + (f" ({effort})" if effort else "")}
-                board.append({**lane, "run": run, "modality": meta.get("modality", "text"), "shots": meta["shots"],
-                              "best_of": meta.get("best_of", 1), "tiers": tiers})
+        created = max(json.loads((d / "summary.json").read_text())["created"] for d in dirs)
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
-        args.out_json.write_text(json.dumps({"n": max(m["n"] for m in metas.values()), "created": max(m["created"] for m in metas.values()),
-                                             "shots": "see rows", "lanes": board}, indent=1))
+        args.out_json.write_text(json.dumps({"n": max(e["n"] for e in board), "created": created, "lanes": board}, indent=1))
         print(f"wrote {args.out_json}")
 
 

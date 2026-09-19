@@ -22,3 +22,6 @@ runs/*.log
 training/cadcheck/
 data/cad/img/
 training/vlm/data/
+
+# Second batch of sheet-model parts (rebuild: python -m understudy.cad.splits --extra2)
+data/cad/train_vlm_extra2.jsonl

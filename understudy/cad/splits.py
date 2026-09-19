@@ -9,6 +9,8 @@
 - shots.jsonl        2 worked examples from train, shown to frontier baselines as prior turns.
 - train_vlm_extra.jsonl  extra parts from train_middle for the drawing-sheet model (images are rendered from the
                      reference code, so image and code always agree even where the text spec is noisy).
+- train_vlm_extra2.jsonl every remaining medium/complex/multi-part train_middle part, one per geometry signature not
+                     already covered (`python -m understudy.cad.splits --extra2`; leaves every other file untouched).
 
 Leakage guards: no source part is shared with bench, and no training part has the same geometry signature
 (bbox extents + face count) as a bench part: the underlying CAD library repeats many identical boxes.
@@ -109,5 +111,32 @@ def main(bench_size: int = 500, seed: int = 7, extra_size: int = 12000) -> None:
     print(json.dumps(stats, indent=2))
 
 
+def extra2() -> None:
+    """Append-only second batch for the sheet model: all unused hard train_middle parts, one per new geometry."""
+    bench = read_jsonl(OUT / "bench.jsonl")
+    used = bench + read_jsonl(OUT / "train.jsonl") + read_jsonl(OUT / "train_vlm_extra.jsonl")
+    audit = {r["id"]: r for split in ("train_high", "train_middle") for r in read_jsonl(CACHE / f"audit_{split}.jsonl")}
+    bench_sigs = {signature({**r, **audit[r["id"]]}) for r in bench}
+    known_sources = {r["source_id"] for r in used}
+    covered = {signature({**r, **audit[r["id"]]}) for r in used if r["id"] in audit}
+    out = []
+    for r in audited("train_middle"):
+        sig = signature(r)
+        if r["source_id"] in known_sources or sig in bench_sigs or sig in covered:
+            continue
+        if r["n_faces"] >= 7 or r["n_parts"] > 1:
+            known_sources.add(r["source_id"])
+            covered.add(sig)
+            out.append(r)
+    write_jsonl(OUT / "train_vlm_extra2.jsonl", out)
+    stats = json.loads((OUT / "splits.json").read_text())
+    stats["train_vlm_extra2"] = len(out)
+    stats["train_vlm_extra2_complex_13plus"] = sum(r["n_faces"] >= 13 for r in out)
+    (OUT / "splits.json").write_text(json.dumps(stats, indent=2))
+    print(json.dumps({k: v for k, v in stats.items() if k.startswith("train_vlm")}, indent=2))
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    extra2() if "--extra2" in sys.argv else main()
