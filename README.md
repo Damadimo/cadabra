@@ -21,7 +21,7 @@ render every part as a drawing sheet: FRONT / TOP / RIGHT at one scale + isometr
 Baseten Training (1× H100): LoRA SFT of Qwen3-VL-4B-Instruct on 30,260 sheets -> CadQuery, loss on the code only
         │
         ▼
-Baseten deployment: merged weights served by vLLM straight from the training checkpoint (bt:// weights)
+Baseten deployment: merged weights served by vLLM straight from the training job (training_checkpoints)
         │
         ▼
 held-out sheet ─► sample N programs ─► render each like the input sheet, keep the best match (no answer key)
@@ -32,7 +32,7 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 |---|---|
 | Frontier baselines (Kimi K3, GLM-5.3 Flash, both vision models, high reasoning effort) | Model APIs |
 | Fine-tune Qwen3-VL-4B-Instruct on rendered drawing sheets | Training Jobs on 1× H100 |
-| Serve our model (merged weights, or base + LoRA from any checkpoint) | Deployments with `bt://` checkpoint weights, vLLM |
+| Serve our model (merged weights, or base + LoRA from any checkpoint) | Deployments that pull the training job's checkpoints, vLLM |
 | Built with | Baseten Switch (Claude Code on open models) |
 
 ## Look at your data: what the audit found
@@ -73,11 +73,11 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 | Model | Correct overall [95% CI] | Simple (≤ 6 faces) | Medium (7–12) | Complex (≥ 13) | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|---|
 | **Understudy-CAD 4B (ours)** | _after training_ | | | | | |
-| GLM-5.3 Flash (high) | 65.0% [58–72] | 80.7% | 37.0% | 21.1% | $1.02 | 6.0 s |
-| Kimi K3 (high) | 61.0% [55–68] | 77.0% | 26.1% | 31.6% | $37.04 | 12.4 s |
+| GLM-5.3 Flash (high) | 66.2% [62–70] | 85.7% | 37.0% | 18.6% | $1.00 | 3.7 s |
+| Kimi K3 (high) | 61.8% [58–66] | 81.4% | 30.3% | 18.6% | $36.82 | 10.4 s |
 | Untuned Qwen3-VL-4B | _after deploy_ | | | | | |
 
-200 held-out parts (135 simple, 46 medium, 19 complex; 13 multi-part). Text specs for comparison: Kimi K3 95.0%,
+All 500 held-out parts (322 simple, 119 medium, 59 complex; 38 multi-part). Text specs for comparison: Kimi K3 95.0%,
 GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is in [WORKLOG.md](WORKLOG.md).
 
 ## Quickstart

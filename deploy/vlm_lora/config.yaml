@@ -2,7 +2,7 @@
 #   model="Qwen/Qwen3-VL-4B-Instruct"  -> untuned base (the "base-4b" lane)
 #   model="understudy-cad-vl"          -> base + our adapter (the "specialist" lane)
 # Use it to deploy an intermediate checkpoint (e.g. if the job is stopped early) or to compare base vs ours on one
-# endpoint. Fill the adapter source (checkpoint directory name under $BT_CHECKPOINT_DIR, e.g. checkpoint-600), then
+# endpoint. Fill TRAINING_JOB_ID and CHECKPOINT_NAME (e.g. checkpoint-600) in training_checkpoints, then
 #   baseten model push --dir deploy/vlm_lora --wait          (or: ./scripts/deploy_vlm.sh <job_id> <gpu> <checkpoint>)
 # vLLM >= 0.29: Qwen3VLForConditionalGeneration supports LoRA on the language model (our adapters touch nothing else).
 model_name: understudy-cad-vl-lora
@@ -15,14 +15,18 @@ weights:
   - source: "hf://Qwen/Qwen3-VL-4B-Instruct@ebb281ec70b05090aa6165b016eac8ec08e71b17"
     mount_location: "/models/qwen3-vl-4b"
     ignore_patterns: ["*.md", ".gitattributes"]
-  - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/CHECKPOINT_NAME"  # e.g. bt://understudy-cad-vlm-sft@abc1234/checkpoint-600
-    mount_location: "/models/adapter"
+training_checkpoints:  # the adapter, downloaded to /tmp/training_checkpoints/<job id>/rank-0/<checkpoint>/ before start
+  download_folder: /tmp/training_checkpoints
+  artifact_references:
+    - training_job_id: TRAINING_JOB_ID
+      paths:
+        - rank-0/CHECKPOINT_NAME/
 environment_variables:
   VLLM_LOGGING_LEVEL: INFO
 docker_server:
   # `find` locates the folder holding adapter_config.json wherever BDN mounts the checkpoint's files.
   start_command: >-
-    sh -c 'A=$(dirname "$(find /models/adapter -name adapter_config.json | head -n1)") && echo "adapter $A" &&
+    sh -c 'A=$(dirname "$(find /tmp/training_checkpoints -name adapter_config.json | head -n1)") && echo "adapter $A" &&
     exec vllm serve /models/qwen3-vl-4b
     --served-model-name Qwen/Qwen3-VL-4B-Instruct
     --enable-lora --max-lora-rank 64 --max-loras 1

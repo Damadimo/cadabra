@@ -22,15 +22,15 @@ WORK="$(mktemp -d)"
 if [ -n "$CKPT" ]; then
   cp "$ROOT/deploy/vlm_lora/config.yaml" "$WORK/config.yaml"
   NAME="understudy-cad-vl-lora"
-  sed -i '' -e "s#bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/CHECKPOINT_NAME#bt://$PROJECT@$JOB_ID/$CKPT#" \
+  sed -i '' -e "s#TRAINING_JOB_ID#$JOB_ID#" -e "s#CHECKPOINT_NAME#$CKPT#" \
             -e "s#^  accelerator: L4.*#  accelerator: $GPU#" "$WORK/config.yaml"
 else
   cp "$ROOT/deploy/vlm_ft/config.yaml" "$WORK/config.yaml"
   NAME="understudy-cad-vl"
-  sed -i '' -e "s#bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged#bt://$PROJECT@$JOB_ID/merged#" \
-            -e "s#^  accelerator: L4#  accelerator: $GPU#" "$WORK/config.yaml"
+  sed -i '' -e "s#TRAINING_JOB_ID#$JOB_ID#" \
+            -e "s#^  accelerator: L4.*#  accelerator: $GPU#" "$WORK/config.yaml"
 fi
-grep -n "bt://\|accelerator:" "$WORK/config.yaml"
+grep -n "training_job_id\|rank-0\|accelerator:" "$WORK/config.yaml"
 
 echo "== pushing (first deploy pulls ~9 GB of weights; allow 10-20 min)"
 baseten model push --dir "$WORK" --wait --deploy-timeout 45m ${TEAM:+--team "$TEAM"}  # TEAM=22: our event team

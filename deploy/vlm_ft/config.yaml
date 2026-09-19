@@ -1,5 +1,5 @@
 # OUR fine-tuned Qwen3-VL-4B (merged full weights) on vLLM, OpenAI-compatible with image input.
-# TEMPLATE: fill the two placeholders in `weights[0].source`, then
+# TEMPLATE: fill TRAINING_JOB_ID in `training_checkpoints` (./scripts/deploy_vlm.sh does it), then
 #   baseten train checkpoint list --job-id <TRAINING_JOB_ID>      # confirm the checkpoint is named "merged" and SYNC is done
 #   baseten model push --dir deploy/vlm_ft --wait
 # Endpoint: https://model-<model_id>.api.baseten.co/environments/production/sync/v1   model="understudy-cad-vl"
@@ -9,10 +9,9 @@
 #   plus the base repo's own config, tokenizer, chat template and processor files (train_vlm.py save_merged copies them)
 # vLLM reads the image processor and chat template from this dir too; without them multimodal requests fail.
 #
-# Weights come straight from Baseten Training storage via BDN's bt:// scheme (no download/re-upload):
-#   bt://<training project name>[@<job id>|latest][/<checkpoint name>]
-#   docs.baseten.co/development/model/bdn#baseten-training and docs.baseten.co/training/deployment
-# (`baseten train checkpoint deploy` only deploys LoRA checkpoints, so merged weights go through this config.)
+# Weights come straight from Baseten Training storage: `training_checkpoints` downloads rank-0/merged/ of the job into
+# /tmp/training_checkpoints/<job id>/rank-0/merged before the server starts (the mechanism `baseten train checkpoint
+# deploy` uses). The builder's truss 0.18.30 rejects bt:// weight sources ("Unsupported source scheme"), so not those.
 model_name: understudy-cad-vl
 model_metadata:
   example_model_input:
@@ -31,18 +30,19 @@ model_metadata:
     - openai-compatible
 base_image:
   image: vllm/vllm-openai:v0.29.0-cu129
-weights:
-  - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged"  # e.g. bt://understudy-cad-vlm-sft@abc1234/merged
-    mount_location: "/models/understudy"
-    # Baseten authenticates bt:// sources to your own training projects automatically; no auth block.
+training_checkpoints:
+  download_folder: /tmp/training_checkpoints
+  artifact_references:
+    - training_job_id: TRAINING_JOB_ID
+      paths:
+        - rank-0/merged/
 environment_variables:
   VLLM_LOGGING_LEVEL: INFO
   HF_HUB_OFFLINE: "1"  # everything vLLM needs is in the mounted checkpoint
 docker_server:
-  # `find` locates the dir holding config.json, so this works whether BDN mounts the checkpoint's files at the
-  # mount root or under rank-0/merged/.
+  # `find` locates the downloaded merged/ folder (the one holding config.json).
   start_command: >-
-    sh -c 'M=$(dirname "$(find /models/understudy -name config.json | head -n1)") && echo "serving $M" &&
+    sh -c 'M=$(dirname "$(find /tmp/training_checkpoints -path "*merged*" -name config.json | head -n1)") && echo "serving $M" &&
     exec vllm serve "$M"
     --served-model-name understudy-cad-vl
     --host 0.0.0.0
