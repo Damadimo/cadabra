@@ -1,17 +1,22 @@
 """Baseten Training job: LoRA SFT of Qwen3-VL-4B-Instruct on rendered part sheets -> CadQuery, one H100.
 
   ./dry_run_vlm.sh                                   # 2 CPU steps with a tiny random Qwen3-VL (catches config/data errors)
-  cd training/vlm && baseten train push --config config_vlm.py
+  cd training/vlm && SMOKE=1 baseten train push --config config_vlm.py --job-name smoke   # 20 steps + 32-part eval
+  cd training/vlm && baseten train push --config config_vlm.py --job-name sft             # the real run
   baseten train job logs --job-id <job_id> --tail
 
 Everything in this folder ships with the job, including data/ (train.jsonl, val.jsonl, images/).
-Set MAX_STEPS=20 below for a short smoke run first. The served model is $BT_CHECKPOINT_DIR/merged (see README.md).
+SMOKE=1 (read here, at push time) makes a short run that exercises the image, data, save, merge and eval path.
+TIME_BUDGET_H=<hours> at push time caps the training loop. The served model is $BT_CHECKPOINT_DIR/merged (README.md).
 """
+
+import os
 
 from truss.base.truss_config import AcceleratorSpec
 from truss_train import CacheConfig, CheckpointingConfig, Compute, Image, Runtime, SecretReference, TrainingJob, TrainingProject
 
 BASE_IMAGE = "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime"
+SMOKE = os.environ.get("SMOKE") == "1"
 
 training_runtime = Runtime(
     start_commands=["chmod +x ./run_vlm.sh && ./run_vlm.sh"],
@@ -25,11 +30,12 @@ training_runtime = Runtime(
         "IMAGE_PIXELS": "1048576",  # 1024*1024: a 1024x1024 sheet -> exactly 1024 visual tokens
         "BATCH": "8",
         "GRAD_ACCUM": "2",  # effective batch 16
-        "MAX_STEPS": "-1",  # "20" for a smoke run
-        "SAVE_STEPS": "200",
-        "TIME_BUDGET_H": "0",  # e.g. "2.5" if the H100 is ours for 3 h: stops, saves and merges in time
+        "MAX_STEPS": "20" if SMOKE else "-1",
+        "SAVE_STEPS": "10" if SMOKE else "200",
+        "TIME_BUDGET_H": os.environ.get("TIME_BUDGET_H", "0"),  # e.g. 2.5 if the H100 is ours for 3 h: stops, saves, merges in time
         "MERGE_AT_END": "1",  # writes $BT_CHECKPOINT_DIR/merged for vLLM
-        "EVAL_BENCH": "1",  # after saving: greedy answers for the 500 held-out sheets, graded -> bench_eval/results.json (~6-10 min)
+        "EVAL_BENCH": "1",
+        "EVAL_N": "32" if SMOKE else "500",  # after saving: greedy answers for the 500 held-out sheets, graded -> bench_eval/results.json (~6-10 min)
         "SAVE_ONLY_MODEL": "1",  # checkpoints hold the adapter only (no optimizer state): ~3x smaller, faster to sync/deploy
         "HF_TOKEN": SecretReference(name="hf_access_token"),  # workspace secret: authenticated (faster) weight download
     },
