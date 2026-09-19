@@ -1,0 +1,46 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 200,
+  "shots": 0,
+  "retries": 0,
+  "modality": "image",
+  "best_of": 1,
+  "seed": 0,
+  "created": "2026-09-19T16:00:50",
+  "lanes": [
+    {
+      "lane": "specialist",
+      "label": "Understudy-CAD 4B (ours)",
+      "model": "checkpoint-400",
+      "reasoning_effort": null,
+      "n": 200,
+      "n_infra_failed": 0,
+      "success": 0.605,
+      "success_ci95": [
+        0.535,
+        0.67
+      ],
+      "success_iou95": 0.6,
+      "run_rate": 0.985,
+      "mean_iou_aligned": 0.7601761369375183,
+      "median_chamfer": 0.004339493826005117,
+      "single_part": {
+        "n": 182,
+        "success": 0.6318681318681318
+      },
+      "multi_part": {
+        "n": 18,
+        "success": 0.3333333333333333
+      },
+      "latency_p50": 30.007870083500165,
+      "latency_p95": 54.58921879315014,
+      "ttft_p50": 11.49203089600087,
+      "output_tokens_mean": 202.74,
+      "attempts_mean": 1,
+      "oracle_success": null,
+      "cost_per_1k_usd": 0.6774824471751384,
+      "cost_note": "GPU $0.85/h amortized at concurrency 12",
+      "wall_s": 573.8674846659997
+    }
+  ]
+}
