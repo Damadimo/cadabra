@@ -12,7 +12,11 @@ nproc
 ls data/images | wc -l
 find "${BT_LOAD_CHECKPOINT_DIR:-/nonexistent}" -name adapter_config.json | head -5 || true
 
-python grpo_vlm.py
+if [ "${NPROC:-1}" -gt 1 ]; then
+  torchrun --standalone --nproc_per_node="$NPROC" grpo_vlm.py   # DDP: one process per GPU, each generates its share
+else
+  python grpo_vlm.py
+fi
 
 # Held-out benchmark on the saved merged weights, as a separate process (its grading workers are spawned).
 if [ "${EVAL_BENCH:-0}" = "1" ] && [ -f "${BT_CHECKPOINT_DIR:-./checkpoints}/merged/config.json" ]; then

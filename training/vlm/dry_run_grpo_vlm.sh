@@ -73,7 +73,12 @@ if __name__ == "__main__":  # spawned reward workers re-import this file; only t
 PYEOF
 "${PY[@]}" reward_check.py
 
-"${PY[@]}" grpo_vlm.py
+if [ "${DRY_NPROC:-1}" -gt 1 ]; then  # DDP code path (gloo on CPU), as run_grpo_vlm.sh does with NPROC>1
+  uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" --with cadquery --with trimesh --with scipy \
+    torchrun --nnodes=1 --nproc_per_node="$DRY_NPROC" --master_addr=127.0.0.1 --master_port=29512 grpo_vlm.py
+else
+  "${PY[@]}" grpo_vlm.py
+fi
 python3 -c "import json,sys; h=json.load(open(sys.argv[1])); print('grpo_log.json:', [{k: round(v, 4) if isinstance(v, float) else v for k, v in e.items() if k in ('step','loss','reward','rewards/geometry_reward/mean','rewards/success_metric/mean')} for e in h])" "$WORK/ckpt/grpo_log.json"
 ls "$WORK/ckpt" "$WORK/ckpt/merged"
 [ "${KEEP:-0}" = "1" ] || rm -rf "$WORK"

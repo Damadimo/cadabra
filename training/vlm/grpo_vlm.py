@@ -127,10 +127,11 @@ def load_dataset_rows() -> Dataset:
 def main() -> None:
     dataset = load_dataset_rows()
     processor = AutoProcessor.from_pretrained(MODEL_ID, min_pixels=IMAGE_PIXELS, max_pixels=IMAGE_PIXELS, padding_side="left")
+    world, local_rank = int(os.getenv("WORLD_SIZE", "1")), int(os.getenv("LOCAL_RANK", "0"))  # torchrun: one process per GPU
     model = AutoModelForImageTextToText.from_pretrained(
         MODEL_ID,
         dtype=torch.float32 if CPU_DRY_RUN else torch.bfloat16,
-        device_map="cpu" if CPU_DRY_RUN else "auto",
+        device_map="cpu" if CPU_DRY_RUN else ({"": local_rank} if world > 1 else "auto"),
         attn_implementation=os.getenv("ATTN_IMPL", "sdpa"),
     )
     adapter = find_adapter()
@@ -163,6 +164,7 @@ def main() -> None:
         gradient_checkpointing=os.getenv("GRADIENT_CHECKPOINTING", "0" if CPU_DRY_RUN else "1") == "1",
         gradient_checkpointing_kwargs={"use_reentrant": False},
         use_vllm=False,
+        ddp_find_unused_parameters=False,
         report_to="none",
         reward_weights=[1.0, 0.0],
     )
@@ -175,14 +177,16 @@ def main() -> None:
         peft_config=peft_config,
     )
     trainer.train()
+    trainer.save_model(OUTPUT_DIR)  # every rank calls it; only the main process writes
+    if not trainer.is_world_process_zero():
+        return
     timing = {k: round(v, 2) for e in trainer.state.log_history[-3:] for k, v in e.items() if "generate" in k and isinstance(v, float)}
     print(f"rollout timing (last steps): {timing}")
-    trainer.save_model(OUTPUT_DIR)
     with open(os.path.join(OUTPUT_DIR, "grpo_log.json"), "w") as f:
         json.dump(trainer.state.log_history, f, indent=1)
     print(f"GRPO complete. Adapter saved to {OUTPUT_DIR}")
     if MERGE_AT_END:
-        save_merged(trainer.model, os.path.join(OUTPUT_DIR, "merged"))
+        save_merged(trainer.accelerator.unwrap_model(trainer.model), os.path.join(OUTPUT_DIR, "merged"))
     if _pool is not None:
         _pool.close()
 

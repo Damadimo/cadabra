@@ -25,6 +25,7 @@ from truss_train import (
     TrainingProject,
 )
 
+GPUS = int(os.environ.get("GPUS", "1"))  # GPUS=<n> at push: DDP over n H100s, 64 rollouts per step either way
 SFT_JOB_ID = os.environ.get("SFT_JOB_ID")
 SFT_CHECKPOINT = os.environ.get("SFT_CHECKPOINT")
 if not SFT_JOB_ID or not SFT_CHECKPOINT:
@@ -40,14 +41,15 @@ training_runtime = Runtime(
         "IMAGE_PIXELS": "1048576",  # same budget as stage 1
         "LR": "2e-5",
         "BATCH": "8",
-        "GRAD_ACCUM": "8",  # 64 rollouts per step = 8 sheets x 8 samples
+        "GRAD_ACCUM": str(max(1, 8 // GPUS)),  # 64 rollouts per step = 8 sheets x 8 samples, split over the GPUs
+        "NPROC": str(GPUS),
         "NUM_GENERATIONS": "8",
         "MAX_COMPLETION": "1024",  # reference programs: p95 529 tokens, max 1,101
         "TEMPERATURE": "1.0",
         "SUCCESS_BONUS": "0.5",  # reward = IoU (+0.5 when IoU >= 0.9); crash -0.2; no code -0.5
         "MAX_STEPS": os.environ.get("MAX_STEPS", "60"),  # time the first steps and scale this to the GPU time left
         "SAVE_STEPS": "10",
-        "REWARD_WORKERS": "12",
+        "REWARD_WORKERS": str(max(4, 12 // GPUS)),  # CadQuery workers per GPU process
         "MERGE_AT_END": "1",
         "EVAL_BENCH": os.environ.get("EVAL_BENCH", "1"),  # held-out sheets, greedy, graded after saving -> bench_eval/results.json
         "EVAL_N": os.environ.get("EVAL_N", "500"),
@@ -62,7 +64,7 @@ training_runtime = Runtime(
 
 training_job = TrainingJob(
     image=Image(base_image="pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime"),
-    compute=Compute(accelerator=AcceleratorSpec(accelerator="H100", count=1), cpu_count=14, memory="100Gi"),
+    compute=Compute(accelerator=AcceleratorSpec(accelerator="H100", count=GPUS), cpu_count=14 * GPUS, memory=f"{100 * GPUS}Gi"),
     runtime=training_runtime,
 )
 
