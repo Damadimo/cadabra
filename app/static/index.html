@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understudy</title>
+<style>
+  :root {
+    --bg: #0b0d10; --panel: #12161b; --inset: #0e1216; --line: #222a33;
+    --text: #e6edf3; --muted: #8b98a5; --ours: #4ade80; --ours-line: #166534;
+    --bad: #f87171; --bad-line: #7f1d1d; --accent: #1f6feb;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 20px; }
+  .muted { color: var(--muted); }
+  main { padding: 16px 24px 40px; display: grid; gap: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  textarea, input, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  textarea { width: 100%; min-height: 150px; padding: 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+  select, input, button { padding: 8px 12px; }
+  input { min-width: 260px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .lane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .lane.ours { border-color: var(--ours-line); }
+  .lane h2 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+  .badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .ours .badge { color: var(--ours); border-color: var(--ours-line); }
+  .slug { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
+  .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .m { background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .m b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .m span { color: var(--muted); font-size: 11px; }
+  .status { color: var(--muted); font-size: 12px; min-height: 18px; }
+  pre { margin: 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; min-height: 60px; max-height: 280px; overflow: auto;
+        font: 12px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chk { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .chk.ok { color: var(--ours); border-color: var(--ours-line); }
+  .chk.no { color: var(--bad); border-color: var(--bad-line); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+  .card h3 { margin: 0 0 8px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  code { font: 12px ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Understudy</h1>
+  <span class="muted">A 4B model trained on a Baseten H100, racing frontier models on one messy job</span>
+  <span class="muted" id="task"></span>
+</header>
+<main>
+  <section>
+    <div class="row" style="margin-bottom:8px">
+      <select id="examples"><option value="">Load an example…</option></select>
+      <button class="primary" id="go">Race ▶</button>
+      <span class="muted">Edit the input: delete a field, plant a contradiction, then race again.</span>
+    </div>
+    <textarea id="text" placeholder="Paste a document or load an example"></textarea>
+  </section>
+
+  <section class="lanes" id="lanes"></section>
+
+  <section class="card">
+    <h3>Held-out scoreboard <span class="muted" id="sbmeta"></span></h3>
+    <div id="scoreboard" class="muted">No eval run yet. Run <code>uv run python -m understudy.evaluate</code>.</div>
+  </section>
+
+  <section class="card">
+    <h3>Correct a field → next training round</h3>
+    <div class="row">
+      <select id="clane"></select>
+      <select id="cfield"></select>
+      <input id="cvalue" placeholder='correct value as JSON, e.g. "TX", 1250000, null'>
+      <button id="csend">Add correction</button>
+      <span class="muted" id="cmsg"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = (x, d = 2) => (x == null ? "–" : Number(x).toFixed(d));
+const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(5) : x.toFixed(4)));
+const pctf = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
+let CONFIG = null, EXAMPLES = [];
+const OUTPUTS = {};
+
+function laneEl(key) { return document.getElementById("lane-" + key); }
+function setv(key, field, value) {
+  const el = laneEl(key)?.querySelector(`[data-k="${field}"]`);
+  if (el) el.textContent = value;
+}
+
+async function init() {
+  CONFIG = await (await fetch("/api/config")).json();
+  $("#task").textContent = "· task: " + CONFIG.task;
+  const lanes = $("#lanes");
+  lanes.innerHTML = "";
+  for (const l of CONFIG.lanes) {
+    const el = document.createElement("div");
+    el.className = "lane" + (l.dedicated ? " ours" : "");
+    el.id = "lane-" + l.key;
+    el.innerHTML = `
+      <h2><span>${esc(l.label)}</span><span class="badge">${l.dedicated ? "ours · dedicated on Baseten" : "Baseten Model API"}</span></h2>
+      <div class="slug">${esc(l.model)}</div>
+      <div class="meters">
+        <div class="m"><b data-k="ttft">–</b><span>TTFT s</span></div>
+        <div class="m"><b data-k="tps">–</b><span>out tok/s</span></div>
+        <div class="m"><b data-k="e2e">–</b><span>latency s</span></div>
+        <div class="m"><b data-k="cost">–</b><span>${l.dedicated ? "$/doc (GPU, c=1)" : "$/doc"}</span></div>
+      </div>
+      <div class="status" data-k="status">idle</div>
+      <pre data-k="out"></pre>
+      <div class="checks" data-k="checks"></div>`;
+    lanes.appendChild(el);
+    $("#clane").insertAdjacentHTML("beforeend", `<option value="${esc(l.key)}">${esc(l.label)}</option>`);
+  }
+  for (const f of CONFIG.fields) $("#cfield").insertAdjacentHTML("beforeend", `<option>${esc(f)}</option>`);
+  EXAMPLES = await (await fetch("/api/examples")).json();
+  EXAMPLES.forEach((e, i) => $("#examples").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(e.title)}</option>`));
+  loadScoreboard();
+}
+
+$("#examples").onchange = (e) => { const x = EXAMPLES[e.target.value]; if (x) $("#text").value = x.text; };
+
+$("#go").onclick = async () => {
+  const text = $("#text").value.trim();
+  if (!text) return;
+  const state = {};
+  for (const l of CONFIG.lanes) {
+    state[l.key] = { t0: performance.now(), reasoning: 0, content: "", done: false, ttft: null };
+    for (const k of ["ttft", "tps", "e2e", "cost"]) setv(l.key, k, "–");
+    setv(l.key, "status", "waiting for first token…");
+    setv(l.key, "out", "");
+    laneEl(l.key).querySelector('[data-k="checks"]').innerHTML = "";
+  }
+  $("#go").disabled = true;
+  const clock = setInterval(() => {
+    for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000).toFixed(1));
+  }, 100);
+  try {
+    const res = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        if (chunk.startsWith("data: ")) handle(JSON.parse(chunk.slice(6)), state);
+      }
+    }
+  } finally {
+    clearInterval(clock);
+    $("#go").disabled = false;
+  }
+};
+
+function handle(ev, state) {
+  const s = state[ev.lane];
+  if (!s) return;
+  if ((ev.type === "reasoning" || ev.type === "content") && s.ttft == null) {
+    s.ttft = (performance.now() - s.t0) / 1000;
+    setv(ev.lane, "ttft", s.ttft.toFixed(2));
+  }
+  if (ev.type === "reasoning") {
+    s.reasoning += ev.text.length;
+    setv(ev.lane, "status", `thinking… (~${Math.round(s.reasoning / 4)} tokens)`);
+  } else if (ev.type === "content") {
+    s.content += ev.text;
+    setv(ev.lane, "status", "answering…");
+    setv(ev.lane, "out", s.content);
+  } else if (ev.type === "done") {
+    s.done = true;
+    const m = ev.metrics;
+    setv(ev.lane, "ttft", num(m.ttft_s));
+    setv(ev.lane, "tps", num(m.tok_per_s, 0));
+    setv(ev.lane, "e2e", num(m.e2e_s));
+    setv(ev.lane, "cost", money(m.cost_usd));
+    if (ev.output) {
+      OUTPUTS[ev.lane] = ev.output;
+      setv(ev.lane, "out", JSON.stringify(ev.output, null, 2));
+    }
+    const note = ev.error ? "error: " + ev.error
+      : ev.parse_error ? "invalid output: " + ev.parse_error
+      : `done · ${m.output_tokens} output tokens${m.usage_estimated ? " (estimated)" : ""}${m.cached_tokens ? ` · ${m.cached_tokens} cached input` : ""}`;
+    setv(ev.lane, "status", note);
+    laneEl(ev.lane).querySelector('[data-k="checks"]').innerHTML = Object.entries(ev.checks || {})
+      .map(([k, ok]) => `<span class="chk ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${esc(k)}</span>`).join("");
+  } else if (ev.type === "error") {
+    s.done = true;
+    setv(ev.lane, "status", "error: " + ev.error);
+  }
+}
+
+async function loadScoreboard() {
+  const sb = await (await fetch("/api/scoreboard")).json();
+  if (!sb || !sb.lanes) return;
+  $("#sbmeta").textContent = `· ${sb.n_items} held-out items · concurrency ${sb.concurrency} · ${sb.created}`;
+  const rows = sb.lanes.map((l) => `<tr>
+      <td>${esc(l.lane)} <span class="muted">${esc(l.model)}</span></td>
+      <td>${pctf(l.decision_acc)} <span class="muted">[${pctf(l.decision_ci95[0])}, ${pctf(l.decision_ci95[1])}]</span></td>
+      <td>${pctf(l.field_acc)}</td><td>${pctf(l.checks_pass)}</td>
+      <td>${num(l.e2e_p50)} / ${num(l.e2e_p95)}</td><td>${num(l.ttft_p50)}</td>
+      <td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td>
+      <td>${l.escalation_rate == null ? "" : pctf(l.escalation_rate) + " escalated"}</td></tr>`).join("");
+  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Decision acc [95% CI]</th><th>Field acc</th><th>Checks pass</th>
+    <th>Latency p50 / p95 s</th><th>TTFT p50 s</th><th>$ / 1K tasks</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+$("#csend").onclick = async () => {
+  const lane = $("#clane").value, field = $("#cfield").value;
+  const output = OUTPUTS[lane];
+  if (!output) { $("#cmsg").textContent = "Race first, then correct a lane's answer."; return; }
+  let value;
+  try { value = JSON.parse($("#cvalue").value); } catch { value = $("#cvalue").value; }
+  const res = await fetch("/api/correct", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: $("#text").value, output, field, value }) });
+  const body = await res.json();
+  $("#cmsg").textContent = res.ok ? `Queued. ${body.count} corrections waiting for the next training round.` : "Rejected: " + body.detail;
+};
+
+init();
+</script>
+</body>
+</html>

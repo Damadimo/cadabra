@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# Sponsor data and derived training data stay local unless the licence allows sharing
+data/raw/
+data/labels/
+data/cache/
+training/data/
+
+# Local deploy artifacts
+truss_configs/
+checkpoints/
+.dryrun/
