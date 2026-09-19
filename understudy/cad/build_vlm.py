@@ -40,16 +40,21 @@ def main() -> None:
     ap.add_argument("--val-frac", type=float, default=0.02)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--seed", type=int, default=11)
+    ap.add_argument("--no-extra", action="store_true", help="only train_high parts (skip the train_middle extras)")
     args = ap.parse_args()
 
     index = json.loads((IMAGES / "index.json").read_text())
     bench_sources = {r["source_id"] for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")}
     shot_ids = {r["id"] for r in read_jsonl(ROOT / "data" / "cad" / "shots.jsonl")}
+    pool = read_jsonl(ROOT / "data" / "cad" / "train.jsonl")
+    if not args.no_extra:
+        pool += read_jsonl(ROOT / "data" / "cad" / "train_vlm_extra.jsonl")
     recs = [
         r
-        for r in read_jsonl(ROOT / "data" / "cad" / "train.jsonl")[: args.limit]
+        for r in pool[: args.limit]
         if r["id"] in index and r["source_id"] not in bench_sources and r["id"] not in shot_ids and image_path(r["id"], IMAGES).exists()
     ]
+    missing = len(pool[: args.limit]) - len(recs)
     fit, val = split_by_source(recs, args.val_frac, seed=args.seed)
     (OUT / "images").mkdir(parents=True, exist_ok=True)
     for r in fit + val:
@@ -59,7 +64,8 @@ def main() -> None:
     write_jsonl(OUT / "train.jsonl", [row(r, index[r["id"]]["bbox"]) for r in fit])
     write_jsonl(OUT / "val.jsonl", [row(r, index[r["id"]]["bbox"]) for r in val])
     size_mb = sum(p.stat().st_size for p in (OUT / "images").iterdir()) / 1e6
-    stats = {"train": len(fit), "val": len(val), "images_mb": round(size_mb, 1)}
+    stats = {"train": len(fit), "val": len(val), "images_mb": round(size_mb, 1), "skipped_unrendered_or_excluded": missing,
+             "multi_part": sum(r["n_parts"] > 1 for r in fit), "complex_7plus_faces": sum(r.get("n_faces", 0) >= 7 for r in fit)}
     (OUT / "stats.json").write_text(json.dumps(stats, indent=2))
     print(json.dumps(stats, indent=2))
 

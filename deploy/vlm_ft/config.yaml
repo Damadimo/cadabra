@@ -6,7 +6,7 @@
 #
 # The training job must write a complete HF model dir to $BT_CHECKPOINT_DIR/merged, in bf16:
 #   model.merge_and_unload().save_pretrained(dir, safe_serialization=True)   # config.json, *.safetensors, generation_config.json
-#   AutoProcessor.from_pretrained(BASE).save_pretrained(dir)                 # preprocessor_config.json, tokenizer*, chat_template
+#   plus the base repo's own config, tokenizer, chat template and processor files (train_vlm.py save_merged copies them)
 # vLLM reads the image processor and chat template from this dir too; without them multimodal requests fail.
 #
 # Weights come straight from Baseten Training storage via BDN's bt:// scheme (no download/re-upload):
@@ -32,7 +32,7 @@ model_metadata:
 base_image:
   image: vllm/vllm-openai:v0.29.0-cu129
 weights:
-  - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged"  # e.g. bt://understudy-cad-vl-sft@abc1234/merged
+  - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged"  # e.g. bt://understudy-cad-vlm-sft@abc1234/merged
     mount_location: "/models/understudy"
     # Baseten authenticates bt:// sources to your own training projects automatically; no auth block.
 secrets:

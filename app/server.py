@@ -116,9 +116,16 @@ def examples() -> list[dict]:
     """Held-out benchmark specs for the dropdown: data/cad/demo.json if present, else a spread by complexity."""
     demo = DATA / "demo.json"
     ids = json.loads(demo.read_text()) if demo.exists() else None
-    if not ids:
-        recs = sorted(BENCH.values(), key=lambda r: (r["n_parts"], r.get("n_faces", 0)))
-        ids = [recs[int(i * (len(recs) - 1) / 11)]["id"] for i in range(12)]
+    if not ids:  # 4 simple, 4 medium, 4 complex or multi-part, spread across each tier
+        tiers = (
+            [r for r in BENCH.values() if r.get("n_faces", 0) <= 6 and r["n_parts"] == 1],
+            [r for r in BENCH.values() if 7 <= r.get("n_faces", 0) <= 12 and r["n_parts"] == 1],
+            [r for r in BENCH.values() if r.get("n_faces", 0) >= 13 or r["n_parts"] > 1],
+        )
+        ids = []
+        for tier in tiers:
+            tier = sorted(tier, key=lambda r: (r.get("n_faces", 0), r["id"]))
+            ids += [tier[int(i * (len(tier) - 1) / 3)]["id"] for i in range(4)] if tier else []
     out = []
     for i in ids:
         rec = BENCH.get(i)

@@ -130,10 +130,11 @@ def save_merged(peft_model, out_dir):
     """Fold the LoRA deltas into the base weights and write a folder vLLM serves exactly like BASE_MODEL."""
     merged = peft_model.merge_and_unload()
     merged.save_pretrained(out_dir)  # safetensors with the same tensor names as the base checkpoint
-    # Non-weight files are the base repo's own, not save_pretrained's: transformers 5 rewrites config.json
-    # (rope_scaling -> rope_parameters) and folds the image/video processor configs into processor_config.json, which
-    # stacks on transformers 4.x do not read. LoRA changes no config, and the base files load wherever the base model
-    # does. Only the image budget is updated to the one used in training.
+    # Non-weight files are the base repo's own, not save_pretrained's. transformers 5 writes config.json with
+    # rope_parameters instead of rope_scaling, which transformers 4.57 fails to load (servers built on 4.x break), and
+    # moves the processor configs into processor_config.json. LoRA changes no config, so the base files are exact, and
+    # they load wherever the base model does (checked on 4.57.6 and 5.17). Only the image budget is updated to the one
+    # used in training.
     src = MODEL_ID if os.path.isdir(MODEL_ID) else snapshot_download(MODEL_ID, allow_patterns=["*.json", "*.jinja", "*.txt"])
     for name in os.listdir(src):
         if name.endswith((".json", ".jinja", ".txt")) and not name.endswith(".index.json"):
