@@ -93,6 +93,41 @@ one epoch**, vs GLM-5.3 Flash 65% and Kimi K3 61%; on medium/complex parts **41.
 ($252 per 1,000 parts), GLM-5.3 Flash 32% → 46%. Text specs for comparison: Kimi K3 95.0%,
 GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is in [WORKLOG.md](WORKLOG.md).
 
+## Is it overfitting, or memorizing the benchmark?
+
+- **One pass over the data, and validation loss fell to the last step**: 0.212 → 0.158, token accuracy 92.7% → 94.4%.
+  Nothing was seen twice, and the curve was still improving when the epoch ended.
+- **No benchmark part is in training**: the 500 benchmark parts are held out by source part (0 shared), and every
+  training part with a benchmark part's exact geometry signature was dropped (1,886 of them).
+- **Near-duplicates don't explain the result** (`scripts/leakage_check.py`). 57 of 500 benchmark parts have a training
+  part within 1% on every bounding-box axis with the same face and part count; none within 0.1%. Those parts are easier
+  for everyone, including models that never saw our data. On the **443 parts with no near-duplicate**:
+
+  | | Near-duplicate (57) | No near-duplicate (443) |
+  |---|---|---|
+  | **Ours, best of 8** | 96.5% | **77.4%** |
+  | **Ours, 1 sample** | 93.0% | 67.5% |
+  | GLM-5.3 Flash (high) | 84.2% | 63.9% |
+  | Kimi K3 (high) | 73.7% | 60.3% |
+
+  Our margin over the best frontier model is **+13.5 points on the clean subset**, the same as the +13.5 overall.
+
+## The data
+
+| | Parts | What |
+|---|---|---|
+| CAD-Coder splits audited | 82,659 | every reference program run and checked against its own spec (`train_high` 8,177, `train_middle` 66,532, `test` 7,950) |
+| **Benchmark (held out)** | **500** | from the curated `train_high`, grouped by source part; 322 simple, 119 medium, 59 complex, 43 multi-part |
+| Training, `train_high` | 5,698 | the rest of `train_high` after removing benchmark sources and benchmark geometries |
+| Training, `train_middle` batch 1 | 12,000 | 70% medium/complex/multi-part |
+| Training, `train_middle` batch 2 | 12,868 | every remaining medium/complex part, one per geometry signature |
+| **Drawing sheets used for training** | **30,260** (+306 validation) | 72% medium/complex, 35% multi-part, 549 MB of renders |
+| RL prompts | 2,000 | 80% medium/complex, same held-out rules |
+
+Each sheet is rendered from the part's own reference program, so the drawing and the answer always agree even where
+the dataset's text specs are wrong. Training targets are the reference programs with trailing display comments removed;
+loss is on the code only.
+
 ## Quickstart
 
 ```bash
