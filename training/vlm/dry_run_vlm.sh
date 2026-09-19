@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="$HERE/../../.dryrun/vlm"  # outside training/vlm: a job push uploads that whole folder
 rm -rf "$WORK" && mkdir -p "$WORK/data/images"
 cp "$HERE/train_vlm.py" "$WORK/"
-PY=(uv run --no-project --python 3.12 --with-requirements "$HERE/requirements_vlm.txt" python)
+PY=(uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" python)
 cd "$WORK"
 
 # Fake dataset in the coordinator's on-disk format: 4 train rows, 2 val rows.
