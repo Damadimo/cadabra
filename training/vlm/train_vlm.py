@@ -202,6 +202,7 @@ args = SFTConfig(
     lr_scheduler_type="cosine",
     logging_steps=int(os.getenv("LOG_STEPS", "5")),
     save_steps=SAVE_STEPS,
+    save_only_model=os.getenv("SAVE_ONLY_MODEL", "1") == "1",  # adapter only; we never resume, we deploy
     eval_strategy="steps" if val is not None else "no",
     eval_steps=SAVE_STEPS,
     dataloader_num_workers=dataloader_workers(),

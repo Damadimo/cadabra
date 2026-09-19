@@ -9,7 +9,7 @@ Set MAX_STEPS=20 below for a short smoke run first. The served model is $BT_CHEC
 """
 
 from truss.base.truss_config import AcceleratorSpec
-from truss_train import CacheConfig, CheckpointingConfig, Compute, Image, Runtime, TrainingJob, TrainingProject
+from truss_train import CacheConfig, CheckpointingConfig, Compute, Image, Runtime, SecretReference, TrainingJob, TrainingProject
 
 BASE_IMAGE = "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime"
 
@@ -29,6 +29,8 @@ training_runtime = Runtime(
         "SAVE_STEPS": "200",
         "TIME_BUDGET_H": "0",  # e.g. "2.5" if the H100 is ours for 3 h: stops, saves and merges in time
         "MERGE_AT_END": "1",  # writes $BT_CHECKPOINT_DIR/merged for vLLM
+        "SAVE_ONLY_MODEL": "1",  # checkpoints hold the adapter only (no optimizer state): ~3x smaller, faster to sync/deploy
+        "HF_TOKEN": SecretReference(name="hf_access_token"),  # workspace secret: authenticated (faster) weight download
     },
     cache_config=CacheConfig(enabled=True),  # persists /root/.cache (HF weights, pip) across jobs in this project
     checkpointing_config=CheckpointingConfig(enabled=True),
