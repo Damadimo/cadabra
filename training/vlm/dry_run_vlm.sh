@@ -2,10 +2,10 @@
 # Laptop smoke test for train_vlm.py: 2 CPU steps with a tiny random Qwen3-VL on a fake 4-row dataset (PIL-drawn
 # 1024x1024 sheets, realistic prompt/completion text), including the merged save. Then it reloads merged/ and checks
 # that it matches base + adapter. Catches data-format, processor and trainer-argument errors before they cost H100 time.
-#   ./training/vlm/dry_run_vlm.sh            # KEEP=1 keeps .dryrun/ (data + checkpoints) for inspection
+#   ./training/vlm/dry_run_vlm.sh            # KEEP=1 keeps <repo>/.dryrun/vlm (data + checkpoints) for inspection
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-WORK="$HERE/.dryrun"
+WORK="$HERE/../../.dryrun/vlm"  # outside training/vlm: a job push uploads that whole folder
 rm -rf "$WORK" && mkdir -p "$WORK/data/images"
 cp "$HERE/train_vlm.py" "$WORK/"
 PY=(uv run --no-project --python 3.12 --with-requirements "$HERE/requirements_vlm.txt" python)

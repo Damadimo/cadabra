@@ -34,6 +34,9 @@ MODEL_ID = os.getenv("BASE_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(HERE, "data"))
 OUTPUT_DIR = os.getenv("BT_CHECKPOINT_DIR", "./checkpoints")
 RANK = int(os.getenv("LORA_RANK", "16"))
+# alpha fixed at 32 (scale alpha/r): with this parametrization the best LR barely moves with rank ("LoRA Without Regret",
+# Thinking Machines 2025), so LR=2e-4 carries over from r=16 to r=64.
+ALPHA = int(os.getenv("LORA_ALPHA", "32"))
 MAX_LEN = int(os.getenv("MAX_LEN", "6144"))  # ~1024 image + ~600 text tokens per row; far above any row
 SAVE_STEPS = int(os.getenv("SAVE_STEPS", "200"))
 CPU_DRY_RUN = os.getenv("CPU_DRY_RUN") == "1"  # local smoke test on a laptop; never set on Baseten
@@ -173,7 +176,7 @@ model.enable_input_require_grads()
 
 peft_config = LoraConfig(
     r=RANK,
-    lora_alpha=2 * RANK,
+    lora_alpha=ALPHA,
     target_modules=LM_TARGETS,
     lora_dropout=0.05,
     task_type="CAUSAL_LM",

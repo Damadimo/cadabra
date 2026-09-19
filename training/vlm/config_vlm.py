@@ -17,8 +17,9 @@ training_runtime = Runtime(
     start_commands=["chmod +x ./run_vlm.sh && ./run_vlm.sh"],
     environment_variables={
         "BASE_MODEL": "Qwen/Qwen3-VL-4B-Instruct",
-        "EPOCHS": "1",  # ~17k rows with the train_middle extras: one pass is ~1,070 steps (~1.5-2 H100-hours)
-        "LORA_RANK": "16",
+        "EPOCHS": "1",  # ~30k rows with both train_middle batches: one pass is ~1,900 steps (~2-3 H100-hours)
+        "LORA_RANK": "64",  # ~130M adapter params: room for ~20M supervised code tokens
+        "LORA_ALPHA": "32",
         "LR": "2e-4",
         "MAX_LEN": "6144",  # rows are ~1024 image + ~600 text tokens; never truncate
         "IMAGE_PIXELS": "1048576",  # 1024*1024: a 1024x1024 sheet -> exactly 1024 visual tokens

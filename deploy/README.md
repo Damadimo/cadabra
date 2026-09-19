@@ -76,7 +76,7 @@ or merger need `--enable-tower-connector-lora` (`supports_tower_connector_lora =
 and fine-tune side by side, which fits the current `base-4b` / `specialist` lanes:
 
 `vlm_lora/config.yaml` does this: base weights from the pinned HF commit at `/models/qwen3-vl-4b`, the adapter from
-`bt://understudy-cad-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 16
+`bt://understudy-cad-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 64
 --lora-modules understudy-cad-vl=<folder holding adapter_config.json>`. Our adapters only touch the language model.
 
 Not yet run on Baseten (deploys are blocked). LoRA adds per-token overhead compared with merged weights. `baseten train checkpoint deploy` only

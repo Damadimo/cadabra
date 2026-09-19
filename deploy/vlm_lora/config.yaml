@@ -30,7 +30,7 @@ docker_server:
     sh -c 'A=$(dirname "$(find /models/adapter -name adapter_config.json | head -n1)") && echo "adapter $A" &&
     exec vllm serve /models/qwen3-vl-4b
     --served-model-name Qwen/Qwen3-VL-4B-Instruct
-    --enable-lora --max-lora-rank 16 --max-loras 1
+    --enable-lora --max-lora-rank 64 --max-loras 1
     --lora-modules understudy-cad-vl="$A"
     --host 0.0.0.0
     --port 8000
