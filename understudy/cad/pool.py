@@ -13,11 +13,15 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 
-def _worker_main(conn) -> None:
+GEOMETRY_MODULE = __name__.rsplit(".", 1)[0] + ".geometry"  # works as understudy.cad.* and as training/cadcheck.*
+
+
+def _worker_main(conn, module_name: str) -> None:
+    import importlib
     import tempfile
 
     os.chdir(tempfile.mkdtemp(prefix="cadworker-"))  # any stray file write lands here, not in the repo
-    from understudy.cad import geometry
+    geometry = importlib.import_module(module_name)
 
     conn.send("ready")
     while True:
@@ -44,7 +48,7 @@ class CadPool:
 
     def _start(self):
         parent, child = self._ctx.Pipe()
-        proc = self._ctx.Process(target=_worker_main, args=(child,), daemon=True)
+        proc = self._ctx.Process(target=_worker_main, args=(child, GEOMETRY_MODULE), daemon=True)
         proc.start()
         return proc, parent
 

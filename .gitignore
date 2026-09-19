@@ -19,3 +19,4 @@ checkpoints/
 # CAD data: raw downloads, audit cache and the large train split are rebuilt by scripts
 data/cad/train.jsonl
 runs/*.log
+training/cadcheck/
