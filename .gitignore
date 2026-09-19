@@ -20,6 +20,7 @@ checkpoints/
 data/cad/train.jsonl
 runs/*.log
 training/cadcheck/
+training/vlm/cadcheck/
 data/cad/img/
 training/vlm/data/
 

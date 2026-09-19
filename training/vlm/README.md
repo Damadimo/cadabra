@@ -77,3 +77,17 @@ baseten train checkpoint files --job-id <job_id>   # presigned URLs, if you want
   (slower, but safe). Check `df -h /dev/shm` in the job log.
 - **Dry run**: the tiny model is random, so its loss (~11.9) and generated sample mean nothing. It checks the wiring
   only.
+
+## Optional stage 2: GRPO on the geometry reward
+
+`grpo_vlm.py` continues the SFT adapter with GRPO: 8 samples per sheet, reward = aligned IoU of the built solid vs the
+reference (+0.5 when IoU >= 0.9; crash -0.2; no code -0.5), rollouts generated with transformers (no vLLM in the image).
+
+```sh
+./training/vlm/dry_run_grpo_vlm.sh        # reward on known answers + 1 CPU step with a tiny Qwen3-VL (free)
+cd training/vlm && SFT_JOB_ID=<sft job> SFT_CHECKPOINT=checkpoint-<last> baseten train push --config config_grpo_vlm.py
+PROJECT=understudy-cad-vlm-grpo ./scripts/deploy_vlm.sh <grpo job> H100_40GB
+```
+
+Only worth it with GPU time left after SFT + deploy + benchmark: time the first steps (~1 min/step expected) and
+keep it only if the benchmark improves on the same parts (`leaderboard.py --common`).

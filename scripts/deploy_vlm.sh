@@ -12,7 +12,7 @@ JOB_ID="${1:?usage: deploy_vlm.sh <training_job_id> [accelerator] [checkpoint]}"
 GPU="${2:-L4}"
 CKPT="${3:-}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT="understudy-cad-vlm-sft"
+PROJECT="${PROJECT:-understudy-cad-vlm-sft}"  # PROJECT=understudy-cad-vlm-grpo for the RL stage
 
 echo "== checkpoints of $JOB_ID (need one named 'merged', fully synced)"
 baseten train checkpoint list --job-id "$JOB_ID" --output json | tee /tmp/understudy_ckpts.json | head -40 || true
