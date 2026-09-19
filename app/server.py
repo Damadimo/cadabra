@@ -4,6 +4,8 @@
 
 Lanes: RACE_LANES (default "specialist,moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high"). Frontier lanes get the
 same worked examples as in the benchmark; our model gets the zero-shot prompt it was trained on.
+If a Model API call fails for account reasons (402/401/403) on a held-out part, that lane shows the same model's answer
+from the benchmark run instead (FALLBACK_RUNS, default "sota-img,sota-img-rest"), labeled as such.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from understudy.cad import prompts
-from understudy.cad.bench import resolve_lanes
+from understudy.cad.bench import FATAL, infra_failed, resolve_lanes
 from understudy.cad.render import image_path
 from understudy.cad.pool import CadPool
 from understudy.config import ROOT, Lane
@@ -45,6 +47,21 @@ def image_shots() -> list[dict]:
         for s in SHOTS
         if s["id"] in SHEETS
     ]
+
+
+def saved_answers() -> dict[tuple[str, str], dict]:
+    """(lane, part) -> that lane's scored answer in the newest benchmark run of each FALLBACK_RUNS tag."""
+    out = {}
+    for tag in filter(None, os.getenv("FALLBACK_RUNS", "sota-img,sota-img-rest").split(",")):
+        found = sorted((ROOT / "runs").glob(f"*_{tag}"), key=lambda p: p.name)
+        if found:
+            for r in read_jsonl(found[-1] / "results.jsonl"):
+                if not infra_failed(r):
+                    out[(r["lane"], r["id"])] = {**r, "_run": found[-1].name}
+    return out
+
+
+SAVED = saved_answers()
 MESHES: OrderedDict[str, bytes] = OrderedDict()
 POOL: CadPool | None = None
 REPLAYS = ROOT / "data" / "demo" / "replays"  # recorded races: offline fallback for the live demo
@@ -245,6 +262,23 @@ async def race(req: RaceRequest) -> StreamingResponse:
             payload["mesh"] = store(res.get("aligned_mesh_stl") or res["mesh_stl"])
         await queue.put(payload)
 
+    async def replay_saved(lane: Lane, row: dict) -> None:
+        """The API refused the call (credits/auth), not the model: show this model's answer from the benchmark run."""
+        await queue.put({"lane": lane.key, "type": "status", "text": f"API unavailable: showing this model's answer from benchmark run {row['_run']}"})
+        if row.get("code"):
+            await queue.put({"lane": lane.key, "type": "content", "text": row["code"]})
+        metrics = {"ttft_s": row.get("ttft_s"), "e2e_s": row.get("e2e_s"), "output_tokens": row.get("output_tokens"), "cost_usd": row.get("cost_usd")}
+        await queue.put({"lane": lane.key, "type": "generated", "metrics": metrics, "error": None})
+        if not (row.get("runs") and row.get("code")):
+            await queue.put({"lane": lane.key, "type": "graded", "runs": False, "code": row.get("code"), "error": row.get("error") or "no solid"})
+            return
+        res = await asyncio.to_thread(POOL.run, code=row["code"], gold_code=gold, want_mesh=True, want_chamfer=bool(gold))
+        payload = {"lane": lane.key, "type": "graded", "code": row["code"], "runs": bool(res.get("runs")), "error": res.get("error"),
+                   "iou": res.get("iou"), "iou_aligned": res.get("iou_aligned"), "chamfer": res.get("chamfer"), "stats": res.get("stats")}
+        if res.get("runs"):
+            payload["mesh"] = store(res.get("aligned_mesh_stl") or res["mesh_stl"])
+        await queue.put(payload)
+
     async def run(lane: Lane) -> None:
         try:
             if image_mode and lane.dedicated and best_of > 1:
@@ -265,6 +299,10 @@ async def race(req: RaceRequest) -> StreamingResponse:
                     await queue.put({"lane": lane.key, **event})
                     continue
                 result = event["result"]
+                saved = SAVED.get((lane.key, req.example_id))
+                if result.error and any(code in result.error for code in FATAL) and saved:
+                    await replay_saved(lane, saved)
+                    return
                 await queue.put({"lane": lane.key, "type": "generated", "metrics": result.metrics(), "error": result.error})
                 code = None if result.error else prompts.extract_code(result.content)
                 if code is None:
