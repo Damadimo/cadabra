@@ -7,6 +7,11 @@
 - train.jsonl        the rest of train_high after the same checks. Never overlaps bench by source part.
 - test_verified.jsonl official CAD-Coder test rows whose single-part reference runs and matches its stated size.
 - shots.jsonl        2 worked examples from train, shown to frontier baselines as prior turns.
+- train_vlm_extra.jsonl  extra parts from train_middle for the drawing-sheet model (images are rendered from the
+                     reference code, so image and code always agree even where the text spec is noisy).
+
+Leakage guards: no source part is shared with bench, and no training part has the same geometry signature
+(bbox extents + face count) as a bench part: the underlying CAD library repeats many identical boxes.
 """
 
 from __future__ import annotations
@@ -22,6 +27,11 @@ from .data import load_split
 OUT = ROOT / "data" / "cad"
 CACHE = ROOT / "data" / "cache"
 KEEP = ("id", "source_id", "spec", "gold_code", "n_parts", "identity_transforms")
+SHOT_IDS = ("train_high:03751", "train_high:04183")
+
+
+def signature(rec: dict) -> tuple:
+    return tuple(round(x, 3) for x in rec["extents"]) + (rec["n_faces"],)
 
 
 def audited(split: str) -> list[dict]:
@@ -37,7 +47,7 @@ def audited(split: str) -> list[dict]:
     return out
 
 
-def main(bench_size: int = 500, seed: int = 7) -> None:
+def main(bench_size: int = 500, seed: int = 7, extra_size: int = 12000) -> None:
     rng = random.Random(seed)
     pool = audited("train_high")
     by_source = defaultdict(list)
@@ -51,23 +61,35 @@ def main(bench_size: int = 500, seed: int = 7) -> None:
             break
         bench.extend(by_source[src])
         taken.add(src)
+    bench_sigs = {signature(r) for r in bench}
     train = [r for r in pool if r["source_id"] not in taken]
+    same_geometry = sum(signature(r) in bench_sigs for r in train)
+    train = [r for r in train if signature(r) not in bench_sigs]
 
     test = [r for r in audited("test") if r["n_parts"] == 1 and r["dims_ok"] is True]
     rng.shuffle(test)
 
-    def pick(cond):
-        cands = sorted((r for r in train if cond(r)), key=lambda r: r["id"])
-        return cands[len(cands) // 2]
+    # Pinned worked examples (chosen once: a single-part profile with arcs, and a two-part cut). Every frontier
+    # baseline in runs/ used exactly these two, so they must not change when the training pool does.
+    by_id = {r["id"]: r for r in pool}
+    shots = [by_id[i] for i in SHOT_IDS]
+    train = [r for r in train if r["id"] not in SHOT_IDS]
 
-    shots = [
-        pick(lambda r: r["n_parts"] == 1 and "arc" in r["spec"].lower() and 8 <= r["n_faces"] <= 12),
-        pick(lambda r: r["n_parts"] == 2 and ("remove" in r["spec"].lower() or "cut" in r["spec"].lower())),
-    ]
-    shot_ids = {s["id"] for s in shots}
-    train = [r for r in train if r["id"] not in shot_ids]
+    # Extra drawing-sheet training parts from train_middle: complex-weighted, deduped against bench and train.
+    known = {r["source_id"] for r in bench} | {r["source_id"] for r in train}
+    middle = [r for r in audited("train_middle") if r["source_id"] not in known and signature(r) not in bench_sigs]
+    seen, uniq = set(), []
+    for r in middle:  # one row per source part (train_middle repeats parts with different descriptions)
+        if r["source_id"] not in seen:
+            seen.add(r["source_id"])
+            uniq.append(r)
+    hard = [r for r in uniq if r["n_faces"] >= 7 or r["n_parts"] > 1]
+    easy = [r for r in uniq if not (r["n_faces"] >= 7 or r["n_parts"] > 1)]
+    k_hard = min(len(hard), int(extra_size * 0.7))
+    extra = rng.sample(hard, k_hard) + rng.sample(easy, min(len(easy), extra_size - k_hard))
 
     OUT.mkdir(parents=True, exist_ok=True)
+    write_jsonl(OUT / "train_vlm_extra.jsonl", extra)
     write_jsonl(OUT / "bench.jsonl", bench)
     write_jsonl(OUT / "train.jsonl", train)
     write_jsonl(OUT / "test_verified.jsonl", test)
@@ -79,6 +101,9 @@ def main(bench_size: int = 500, seed: int = 7) -> None:
         "test_verified": len(test),
         "shots": [s["id"] for s in shots],
         "source_overlap_train_bench": len({r["source_id"] for r in train} & {r["source_id"] for r in bench}),
+        "dropped_same_geometry_as_bench": same_geometry,
+        "train_vlm_extra": len(extra),
+        "train_vlm_extra_complex_share": round(k_hard / max(len(extra), 1), 2),
     }
     (OUT / "splits.json").write_text(json.dumps(stats, indent=2))
     print(json.dumps(stats, indent=2))

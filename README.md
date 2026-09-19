@@ -1,104 +1,106 @@
-# Understudy
+# Understudy-CAD
 
-**A 4B open model we train at the hackathon on a Baseten H100, racing Kimi K3 and GLM-5.3 on one messy real-world job: faster, far cheaper, and (the goal) at least as accurate on a held-out set we labeled ourselves.**
+**A 4B open model, post-trained on a Baseten H100, that turns a part description (or a drawing sheet) into
+CadQuery code. Graded by the geometry itself: every answer is executed and its solid is compared to the
+reference with exact volumetric IoU.**
 
-Frontier models are great generalists, but most production AI is one narrow job done millions of times. Understudy
-takes a frontier model's judgment on a single task, keeps only the answers that pass deterministic checks, distills
-them into a small model we own, serves it from a Baseten deployment, and falls back to the frontier model only when
-the specialist's own checks fail.
+Frontier models are strong generalists, but CAD-as-code is a narrow, unforgiving job: a wrong axis, a
+misread convention or a hallucinated API call gives a part that crashes or is simply the wrong shape.
+Understudy distills that one job into a small model we own, serves it on Baseten, and races it live against
+Kimi K3 and GLM-5.3 on held-out parts.
 
-Default task: **commercial-insurance submission triage**. Read a messy packet (broker emails, form excerpts,
-statements of values, loss runs), extract the fields, resolve conflicting values, and decide accept / refer /
-decline with cited guidelines. Fallback task: **security-log triage**. Adding a domain means adding one file in
-`understudy/tasks/`.
-
-## How it uses Baseten
-
-| Step | Baseten product | What happens |
-|---|---|---|
-| Teacher labels | Model APIs: `zai-org/GLM-5.3`, adjudicated by `moonshotai/Kimi-K3` | Structured outputs, kept only when every deterministic check passes |
-| Messy variants | Model APIs: `zai-org/GLM-5.3-Flash` | Cheap rewrites that keep every fact but change the mess |
-| Training | Training Jobs on 1× H100 | LoRA SFT of `Qwen/Qwen3-4B`, answer-only loss (`training/`) |
-| Serving | `baseten train checkpoint deploy` | vLLM serves the base model + our LoRA behind an OpenAI-compatible endpoint |
-| Baselines | Model APIs | The same prompt and schema for every lane, so the race is fair |
-| Building it | Baseten Switch | Claude Code routed to open models on Baseten |
-
-## Pipeline
+## How it works
 
 ```
-raw inputs ──► teacher (GLM-5.3) ──► deterministic checks ──► accepted labels ──► SFT data ──► Baseten Training (H100)
-                    │ fail                                          ▲                                   │
-                    ▼                                               │                                   ▼
-               Kimi K3 adjudicates                         human corrections (UI)          checkpoint deploy (vLLM + LoRA)
-                                                                                                         │
-held-out gold set (hand-corrected, split by source, frozen) ──► evaluate: every lane, same prompt ◄──────┘
-                                                                            │
-                                                              race UI: live lanes + scoreboard
+CAD-Coder (Apache-2.0)  ──► audit: run every reference, check it against its own spec ──► clean splits
+      spec (text) or 4-view drawing sheet (rendered from the reference solid)               │
+                                                                                            ▼
+Baseten Training (H100): LoRA SFT on 7.4K verified pairs ──► optional GRPO, reward = IoU of the built solid
+                                                                                            │
+      checkpoint deploy (vLLM + LoRA) ◄──────────────────────────────────────────────────────┘
+                   │
+held-out parts ──► every lane, same prompt ──► sandboxed CadQuery ──► IoU vs reference ──► scoreboard + 3D race
 ```
+
+| Step | Baseten product |
+|---|---|
+| Frontier baselines (Kimi K3, GLM-5.3, GLM-5.3 Flash) | Model APIs |
+| Fine-tune Qwen3-4B-Instruct-2507 (text) / Qwen3-VL-4B (drawing sheets) | Training Jobs on 1× H100 |
+| Serve our model | `baseten train checkpoint deploy` (vLLM + LoRA) |
+| Built with | Baseten Switch (Claude Code on open models) |
+
+## Look at your data: what the audit found
+
+`scripts/audit_cadcoder.py` runs all ~16K reference programs and checks each against the size its own spec states.
+
+- The **official test split's references disagree with their own spec 14% of the time** (single-part rows where
+  the stated size is checkable) vs **2.3% for the curated `train_high` split**. So the benchmark is held out of
+  `train_high`, grouped by source part (zero overlap with training).
+- References apply the specs' global rotations/translations inconsistently. The headline metric therefore aligns
+  the two solids first (best IoU over the 24 axis rotations after centering). It stays size- and shape-sensitive:
+  a part 10% too large scores 0.75.
+- Some specs can't determine their part ("repeat for the remaining seven faces" with no coordinates), and some
+  reference programs wrote files to disk. The sandbox strips export calls and runs code in a throwaway directory.
+
+## Benchmark rules
+
+- **Same prompt for every lane.** The system prompt spells out the dataset's conventions (e.g. sketch coordinates
+  are already final size) so no model loses on a gotcha. Frontier lanes additionally get two worked examples; ours
+  gets the zero-shot prompt it was trained on.
+- **Success = the code runs and aligned IoU ≥ 0.9.** Also reported: IoU ≥ 0.95, run rate, mean IoU, Chamfer
+  distance, results by complexity (faces, parts), latency p50/p95, output tokens and $ per 1K parts.
+- **Bootstrap 95% CIs**, fixed seeds, and API connection drops are retried (infrastructure failures aren't counted
+  as model failures). Reasoning effort is stated for every frontier lane.
+- **Cost includes the GPU.** Our $/1K parts is the H100's hourly price amortized over measured throughput.
+
+## Results
+
+_Filled in from `runs/<run>/summary.md` after training (see WORKLOG.md for the pilot numbers)._
 
 ## Quickstart
 
 ```bash
-uv sync                                   # Python 3.12 + deps
-cp .env.example .env                      # add BASETEN_API_KEY
-uv run python scripts/smoke.py            # key works, slugs are live, every lane answers (< $0.01)
-uv run uvicorn app.server:app --port 8000 # race UI at http://127.0.0.1:8000
+uv sync                                              # Python 3.12, CadQuery, trimesh, openai
+cp .env.example .env                                 # add BASETEN_API_KEY
+uv run python scripts/smoke.py                       # catalog, rate limit, one held-out part per lane
+uv run python scripts/audit_cadcoder.py              # optional: re-run the data audit
+uv run python -m understudy.cad.splits               # rebuild splits (deterministic)
+uv run python -m understudy.cad.render --split bench # render drawing sheets (image mode)
+uv run uvicorn app.server:app --port 8000            # 3D race UI
 uv run pytest -q
 ```
 
-No credits needed for UI work: run `uv run python scripts/mock_openai.py` and point `BASETEN_BASE_URL` and
-`UNDERSTUDY_BASE_URL` at `http://127.0.0.1:8001/v1` (see `.env.example`). Mock numbers are fake.
-
-## End-to-end run
+Benchmark any lane (named lanes or any Model API slug as `slug:effort`):
 
 ```bash
-# 1. Label: teacher + checks (+ Kimi K3 on failures), with cheap messy variants. Resumable.
-uv run python -m understudy.teacher --inputs data/raw/inputs.jsonl --perturb 2 --rewrites 1
-
-# 2. Build SFT data. Drops every source document that appears in the gold set.
-uv run python -m understudy.build_sft --gold data/gold/gold.jsonl
-
-# 3. Train on a Baseten H100 (the booth enables training access first).
-#    ./training/dry_run.sh runs 2 CPU steps on a tiny Qwen3 first, to catch config and data errors for free.
-./training/dry_run.sh
-cd training && baseten train push --config config.py && cd ..
-baseten train job logs --job-id <job_id> --tail
-
-# 4. Deploy the LoRA checkpoint, then set UNDERSTUDY_BASE_URL / UNDERSTUDY_MODEL in .env
-baseten train checkpoint deploy --job-id <job_id>
-
-# 5. Evaluate every lane on the frozen gold set (then again at --concurrency 16)
-uv run python -m understudy.evaluate --gold data/gold/gold.jsonl --lanes base-4b,specialist,cascade,kimi-k3,glm-5.3,glm-5.3-flash
+uv run python -m understudy.cad.bench --lanes moonshotai/Kimi-K3:high,zai-org/GLM-5.3:high --n 200 --tag sota
+uv run python -m understudy.cad.bench --modality image --lanes moonshotai/Kimi-K3:high --n 200 --tag sota-img
+UNDERSTUDY_BASE_URL=... UNDERSTUDY_MODEL=checkpoint-... \
+  uv run python -m understudy.cad.bench --lanes specialist,base-4b --n 500 --shots 0 --tag ours
 ```
 
-## Evaluation rules we hold ourselves to
+## Training on Baseten
 
-- **Ground truth is human-checked.** The gold set is teacher-prefilled, then corrected by hand, and frozen before the second training round.
-- **No leakage.** Train/test splits are by source document, and `build_sft` drops any source that appears in the gold set.
-- **Same prompt, same schema, every lane.** Frontier lanes also run at more than one reasoning effort, so speed gaps aren't just reasoning tokens.
-- **Uncertainty is reported.** Accuracy comes with bootstrap 95% CIs; latency as p50/p95 at concurrency 1 and 16.
-- **Cost includes the GPU.** The specialist's $/1K tasks is GPU $/hour amortized over measured throughput, not per-token pricing.
-- **Dead ends are logged.** See [WORKLOG.md](WORKLOG.md).
+```bash
+uv run python -m understudy.cad.build_sft      # training/data: 7,429 train / 152 val + 1,200 RL prompts
+./training/dry_run.sh && ./training/dry_run.sh grpo   # CPU smoke tests with a tiny Qwen3 (free)
+cd training && baseten train push --config config.py  # SFT, ~30-60 min on 1x H100
+baseten train checkpoint deploy --job-id <job_id>     # then set UNDERSTUDY_BASE_URL / UNDERSTUDY_MODEL
+SFT_JOB_ID=<job_id> baseten train push --config config_grpo.py   # optional RL stage
+```
 
-## Results
-
-_Filled in from `runs/<run>/summary.md` once the specialist is trained._
+Drawing-sheet (vision) variant: `training/vlm/` and `deploy/` (see their READMEs).
 
 ## Layout
 
 ```
-understudy/          core library
-  config.py          endpoints, pinned slugs, list prices, race lanes
-  llm.py             streaming client: TTFT, tok/s, cost, retries on 429/529
-  tasks/             one file per domain: schema, prompt, deterministic checks
-  teacher.py         label with checks + adjudication (resumable)
-  build_sft.py       labels + corrections -> TRL prompt/completion data
-  evaluate.py        gold-set eval, bootstrap CIs, latency percentiles, $/1K
-  cascade.py         specialist first, escalate when a check fails
-training/            Baseten Training project (config.py, run.sh, train.py, deploy_config.py, dry_run.sh)
-app/                 FastAPI + single-page race UI
-scripts/             smoke test, mock OpenAI-compatible server
-data/samples/        synthetic examples for wiring things up (not eval data)
+understudy/cad/       geometry.py (sandbox + IoU), pool.py (worker processes), data.py, splits.py,
+                      prompts.py, bench.py (benchmark), render.py (drawing sheets), build_sft.py
+understudy/llm.py     streaming client: TTFT, tokens, cost, retries (429/529, dropped streams)
+training/             Baseten jobs: SFT (config.py, train.py), GRPO (config_grpo.py, grpo.py), dry_run.sh
+app/                  FastAPI + three.js race UI (three.js vendored for offline use)
+scripts/              audit, smoke test, mock API
+data/cad/             bench (500), verified official-test subset, worked examples, audit summaries
 ```
 
-Built at Hack the North 2026.
+Built at Hack the North 2026. Data: [CAD-Coder](https://huggingface.co/datasets/gudo7208/CAD-Coder) (Apache-2.0, derived from Text2CAD/DeepCAD).

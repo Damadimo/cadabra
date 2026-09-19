@@ -1,0 +1,10 @@
+8 workers ready
+
+== train_middle: 66532 usable rows, audited in 201s
+  reference runs:        66424/66532 (99.8%)
+  single-part:           51739/66424 (77.9%)
+  single, identity xform:45772/51739
+  single, dims match:    21863/22941 checked (95.3%)
+  parts histogram (5=5+): {1: 51739, 2: 10371, 3: 3196, 4: 710, 5: 408}
+  faces p50/p90: 6/15
+  top errors: [('the result has zero volume', 89), ('Standard_Failure: BRep_API: command not done', 7), ('SyntaxError: unterminated triple-quoted string literal (dete', 3), ('worker error: Standard_Failure: Bnd_Box is void', 3), ("SyntaxError: expected an indented block after 'if' statement", 2)]

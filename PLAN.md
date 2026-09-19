@@ -4,81 +4,66 @@
 
 | When | What |
 |---|---|
-| **Sat 12:30 PM** | Initial Devpost submitted: final team, badge IDs exactly as printed, **every prize ticked** (hard cutoff 2:00 PM; prizes added later don't count) |
-| **Sat 11:00 AM** | Training gate: no H100 access by now → pivot (see below) |
+| **Sat 12:30 PM** | Initial Devpost submitted: final team, badge IDs exactly as printed, **every prize ticked** (hard cutoff 2:00 PM) |
 | **Sun 1:00 AM** | Feature freeze |
-| **Sun 8:00 AM** | Code freeze + final Devpost (repo link required, video strongly recommended) |
-| Sun 9:45–11:45 AM | Sponsor judging. The round-1 room slot may overlap, so **anyone on the team must be able to run the demo alone** |
+| **Sun 8:00 AM** | Code freeze + final Devpost (repo must be public, video strongly recommended) |
+| Sun 9:45–11:45 AM | Sponsor judging; round-1 slot may overlap, so anyone must be able to run the demo alone |
 
-## Roles
+## Done overnight (see WORKLOG.md)
 
-- **A: eval & data.** Gold set, checks, error analysis, metrics.
-- **B: training & serving.** Baseten jobs, checkpoint deploy, cascade.
-- **C: app.** Race UI, correction flow, the "take an action" step.
-- **D: story.** Devpost, WORKLOG, video, pitch, sponsor tracks; helps label.
+- Dataset audit, clean splits (7,583 train / 500 held-out bench / verified official-test subset), sandboxed geometry grader
+- SOTA pilots on Baseten Model APIs (text and drawing-sheet inputs)
+- SFT + GRPO jobs for the text model, both dry-run verified on CPU
+- 3D race demo, benchmark runner, tests
 
-Three people: merge C and D. Two people: A+D and B+C.
+## The one decision still open: text specs or drawing sheets
 
-## Gates
+Measured on held-out parts (WORKLOG.md has the numbers): frontier models are strong on explicit **text** specs, so the
+text model's win is mostly cost/latency. **Drawing sheets** (4 rendered views + bounding box) are where frontier models
+struggle. Take the drawing-sheet (vision) route only if both gates pass:
 
-1. **03:00, domain go/no-go.** Use the dataset that gives ≥300 real inputs and a defensible way to grade them. Default: Federato (insurance). Fallback: CSE (security logs, `UNDERSTUDY_TASK=seclogs`).
-2. **11:00, training access.** If there are no H100s by then, pivot to a trained-router or long-document-agent variant. The data, checks, eval harness and UI all carry over.
-3. **Before v2 training: freeze the gold set.** Final numbers must not be tuned on the test set.
+1. Kimi K3's success on sheets (complex parts) is clearly below what a trained model can plausibly reach.
+2. A fine-tuned Qwen3-VL-4B can be served on Baseten with image input (`deploy/README.md`).
 
-## Timeline
+Otherwise ship the text model and lead with cost/latency plus the GLM-5.3 comparison.
 
-| Time | Who | Work | Done when |
-|---|---|---|---|
-| Sat 01:00–01:45 | All | One Baseten workspace (creator redeems the promo), verify the account, file the event rate-limit form, install the Baseten CLI, `uv`, Switch; store the HF token as Baseten secret `hf_access_token` | `scripts/smoke.py` passes |
-| 01:45–03:00 | A/B/C/D | A: pull data, adapt the task file (schema, guidelines, checks). B: baselines on 20 inputs. C: UI on the mock. D: Devpost draft, prize list | **03:00 gate** |
-| 03:00–05:00 | A+D, B, C | A+D: 100–150-item gold set (teacher prefill, hand-corrected, split by source). B: teacher labeling in the background. C: metrics panel | 2K+ accepted labels |
-| 05:00–09:00 | B, D awake | B: scale labels to 5–10K, build SFT data. D: worklog, diagram. First person free goes to the booth when it opens | Training enabled |
-| 09:00–10:30 | All | B: `MAX_STEPS=50` smoke job (~2 min), then full SFT v1 | v1 checkpoint synced |
-| 10:30–12:00 | B, A | Deploy v1, evaluate at concurrency 1 and 16 | First honest table |
-| 12:00–12:30 | D | **Submit the initial Devpost with all prizes ticked** | Submitted |
-| 12:30–16:30 | A, C awake | A: error analysis on v1 failures, fix checks and labels. C: cascade, corrections, action step | Failure taxonomy |
-| 16:30–19:30 | All | v2: retrain on v1 failures + corrections | v2 trained |
-| 19:30–22:00 | All | Deploy + evaluate v2, integrate, record backup video clips | Numbers frozen |
-| 22:00–01:00 | All | Stretch (GRPO on the check reward) only if every gate passed; otherwise harden | **Feature freeze** |
-| Sun 01:00–08:00 | Shifts | Rehearse ×3, cut the video, finish the Devpost, clean the repo, scrub secrets | **8:00 lock** |
-| 08:00–09:45 | All | Scale the deployment up (min replicas 1) and prewarm; test the demo on a phone hotspot | Demo ready |
+## Timeline from when the booth opens
+
+| Time | Work | Done when |
+|---|---|---|
+| Booth opens | Ask for H100 access + the questions below; `baseten train capacity describe` shows capacity | Capacity > 0 |
+| +0:10 | Text SFT smoke run: `MAX_STEPS=50` in training/config.py, push, watch logs (~5 min) | Job completes, checkpoint synced |
+| +0:20 | Full text SFT (2 epochs, ~30–60 min). In parallel on a 2nd GPU if granted: VLM SFT (`training/vlm/`) | Checkpoints synced |
+| +1:30 | Deploy the checkpoint (`baseten train checkpoint deploy`), set UNDERSTUDY_BASE_URL/MODEL in .env, `scripts/smoke.py` | Endpoint answers |
+| +1:45 | Benchmark ours on all 500 held-out parts: `--lanes specialist,base-4b --shots 0` (fast, no rate limit) | runs/…_ours |
+| +2:15 | Error analysis on failures → optional GRPO (`config_grpo.py`, ~1–2 h) or a second SFT round | Decision logged |
+| 12:30 PM | **Submit the initial Devpost with all prizes ticked** | Submitted |
+| Afternoon | Final SOTA benchmark at scale (200–500 parts per frontier lane; rate-limited, run in background) | Final table |
+| Evening | Demo polish, pick demo parts (data/cad/demo.json), video, README results | Freeze at 1 AM |
 
 ## Questions for the Baseten booth
 
-- How many H100s per team, for how long? Do training jobs and deployments draw on our credits?
-- Can the deployment run on a MIG slice or a smaller GPU?
-- Is Loops (the RL SDK) available to hackers?
-- Is Hosted Tools (web search) enabled for event workspaces?
-- Can our rate limits be raised for the teacher run?
+- H100 access for training (how many, how long)? Do training and deployments draw on our credits?
+- Can our account be verified / rate limits raised? We're at 15 requests/min per model, which throttles the benchmark.
+- Is Loops (RL SDK) available? It supports vision LoRA on Qwen3.5.
+- Any issue serving a fine-tuned vision model (Qwen3-VL) with image input?
 - Is the Baseten prize judged at the booth, on Devpost, or both?
-
-## Devpost checklist
-
-- [ ] "How we use Baseten": model slugs, training job IDs, GPU-minutes, dollars
-- [ ] Results table from `runs/<run>/summary.md`, with n, CIs, concurrency and reasoning effort
-- [ ] What didn't work (the worklog's dead ends)
-- [ ] Pipeline diagram, repo link, 2-minute video
 
 ## Demo (4:10 of a 5-minute slot)
 
-1. **0:00–0:20.** The one-line claim and the headline number from the held-out eval.
-2. **0:20–1:30.** A judge picks or edits an input (delete a field, plant a contradiction). Three lanes race. Point at TTFT, tok/s, $/doc and the checks.
-3. **1:30–2:30.** Scoreboard: accuracy with CIs, p50/p95, $/1K tasks, escalation rate, the v0→v1→v2 curve, one thing that failed.
-4. **2:30–3:15.** Pipeline: teachers, checks, H100 job (ID, minutes, dollars), checkpoint deploy, cascade.
-5. **3:15–3:45.** The judge corrects a field and it lands in the queue that trained v2.
-6. **3:45–4:10.** Close: a model we own, trained on this task's signal, served on Baseten.
+1. **0:00–0:20.** Claim: "a 4B model we post-trained on Baseten builds CAD parts that frontier models get wrong, at a fraction of the cost."
+2. **0:20–1:30.** Pick a held-out part. Three lanes race; the 3D viewers overlay each prediction on the target. Point at correct/wrong pills, time and $ per part.
+3. **1:30–2:30.** Scoreboard: success with CIs by complexity, latency, $ / 1K parts; base model vs ours shows what training added.
+4. **2:30–3:15.** The data story: the audit found 14% of the official test references wrong; the grader runs code and compares geometry, no LLM judge.
+5. **3:15–4:10.** How it was built on Baseten: Model APIs for baselines, Training Jobs on H100, checkpoint deploy, Switch.
 
-Prepared answers: badly-prompted baseline? (show the few-shot baseline) · is the speed gap just reasoning? (show
-low effort too) · overfit? (split by source, and the judge's live input) · trained before the event? (job
-timestamps) · idle GPU cost? ($/hour and the break-even volume).
+Prepared answers: memorized the test set? (held out by source part, zero overlap) · is the prompt unfair to frontier models?
+(same conventions spelled out for all; frontier gets 2 worked examples, ours gets none) · why aligned IoU? (references
+apply global transforms inconsistently; size and shape still count) · cost with an idle GPU? ($6.50/h; break-even volume).
 
-## Platform pitfalls
+## Pitfalls
 
-- Deprecated at 5 PM PT Sept 25: Inkling, Inkling Small, Kimi K2.6, Kimi K2.7 Code, GLM-4.7, DeepSeek-V4-Pro. Don't build on them.
-- Never delete a training job or project that holds undeployed checkpoints; they are gone for good.
-- The deployment bills $6.50/h while up. Scale to zero while developing, and prewarm before judging.
-- Rate limits are per model. 429 and 529 both happen; `llm.py` backs off, and splitting load across models helps.
-- `n` must be 1, and `logprobs` support varies by model.
-- GLM-5.3 Fast returns a 400 for `reasoning_effort: none`; Kimi K3 defaults to max effort.
-- By default, Switch falls back to Anthropic on a 429/5xx. Change that if you don't want your own Anthropic spend.
-- Only quote numbers we measured, on our workload. Don't claim any provider is "the fastest".
+- Deprecated Sep 25: Inkling, Kimi K2.6/K2.7-Code, GLM-4.7, DeepSeek-V4-Pro. We only benchmark Kimi K3, GLM-5.3, GLM-5.3 Flash.
+- Training jobs default to 1 CPU / 2 GiB unless set (configs set 12–14 CPUs); RL rewards need the cores.
+- Never delete a training job holding undeployed checkpoints. Scale deployments to zero when idle; prewarm before judging.
+- High-effort reasoning calls can take minutes (timeouts set to 30 min); connection drops are retried, not scored as failures.

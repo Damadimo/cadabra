@@ -185,7 +185,12 @@ def main() -> None:
             if n % 500 == 0:
                 print(f"  {n}/{len(todo)}", flush=True)
     args.out.mkdir(parents=True, exist_ok=True)
-    index_path.write_text(json.dumps(index))
+    # merge with whatever other render runs wrote meanwhile, then replace atomically
+    latest = json.loads(index_path.read_text()) if index_path.exists() else {}
+    latest.update(index)
+    tmp = index_path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(latest))
+    tmp.replace(index_path)
     print(f"rendered {len(todo) - failed}, failed {failed}, in {time.time() - t0:.0f}s -> {args.out}")
 
 

@@ -1,0 +1,10 @@
+# Exact set that passed dry_run_vlm.sh. Shared by run_vlm.sh (Baseten) and dry_run_vlm.sh (laptop) so both run the same code.
+# torch/torchvision match the pytorch/pytorch:2.7.0-cuda12.8 base image: pip sees them as satisfied and keeps its CUDA build.
+torch==2.7.0
+torchvision==0.22.0
+transformers==5.17.0
+trl==1.13.0
+peft==0.21.0
+datasets==5.0.1
+accelerate==1.15.0
+pillow

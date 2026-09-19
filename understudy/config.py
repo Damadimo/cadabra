@@ -103,8 +103,15 @@ def lanes() -> dict[str, Lane]:
         out["specialist"] = Lane(
             "specialist", "Understudy-CAD 4B (ours)", os.getenv("UNDERSTUDY_MODEL", "checkpoint-final"), base_url=url, gpu_hourly_usd=gpu
         )
-        # v0 baseline: the untuned base model on the same vLLM deployment (check the deployment's /v1/models)
+    # v0 baseline: the untuned base model. With a LoRA deployment it is served by the same vLLM server; with merged
+    # weights (the drawing-sheet model) it is a separate deployment, so it can have its own URL.
+    base_url = os.getenv("BASE_MODEL_URL") or url
+    if base_url:
         out["base-4b"] = Lane(
-            "base-4b", "Qwen3-4B-Instruct (untuned)", os.getenv("UNDERSTUDY_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507"), base_url=url, gpu_hourly_usd=gpu
+            "base-4b",
+            os.getenv("UNDERSTUDY_BASE_LABEL", "Base model (untuned)"),
+            os.getenv("UNDERSTUDY_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507"),
+            base_url=base_url,
+            gpu_hourly_usd=float(os.getenv("BASE_MODEL_GPU_HOURLY", os.getenv("UNDERSTUDY_GPU_HOURLY", "6.50"))),
         )
     return out

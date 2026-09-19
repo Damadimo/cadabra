@@ -1,11 +1,14 @@
 {
-  "train": 7583,
+  "train": 5698,
   "bench": 500,
-  "bench_multi_part": 32,
-  "test_verified": 1883,
+  "bench_multi_part": 43,
+  "test_verified": 1880,
   "shots": [
     "train_high:03751",
     "train_high:04183"
   ],
-  "source_overlap_train_bench": 0
+  "source_overlap_train_bench": 0,
+  "dropped_same_geometry_as_bench": 1886,
+  "train_vlm_extra": 12000,
+  "train_vlm_extra_complex_share": 0.7
 }

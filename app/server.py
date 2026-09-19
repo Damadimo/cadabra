@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from understudy.cad import prompts
 from understudy.cad.bench import resolve_lanes
+from understudy.cad.render import image_path
 from understudy.cad.pool import CadPool
 from understudy.config import ROOT, Lane
 from understudy.data import read_jsonl
@@ -34,6 +35,16 @@ STATIC = Path(__file__).parent / "static"
 DATA = ROOT / "data" / "cad"
 BENCH = {r["id"]: r for r in read_jsonl(DATA / "bench.jsonl")}
 SHOTS = read_jsonl(DATA / "shots.jsonl")
+IMAGES = DATA / "img"
+SHEETS = json.loads((IMAGES / "index.json").read_text()) if (IMAGES / "index.json").exists() else {}
+
+
+def image_shots() -> list[dict]:
+    return [
+        {"image": prompts.data_url(image_path(s["id"], IMAGES)), "bbox": SHEETS[s["id"]]["bbox"], "gold_code": s["gold_code"]}
+        for s in SHOTS
+        if s["id"] in SHEETS
+    ]
 MESHES: OrderedDict[str, bytes] = OrderedDict()
 POOL: CadPool | None = None
 
@@ -85,8 +96,9 @@ def title_of(rec: dict) -> str:
 
 
 class RaceRequest(BaseModel):
-    spec: str
+    spec: str = ""
     example_id: str | None = None
+    modality: str = "text"  # "text": the written spec; "image": the rendered drawing sheet
 
 
 @app.get("/")
@@ -111,8 +123,17 @@ def examples() -> list[dict]:
     for i in ids:
         rec = BENCH.get(i)
         if rec:
-            out.append({"id": i, "title": title_of(rec), "n_parts": rec["n_parts"], "n_faces": rec.get("n_faces"), "spec": rec["spec"]})
+            out.append({"id": i, "title": title_of(rec), "n_parts": rec["n_parts"], "n_faces": rec.get("n_faces"), "spec": rec["spec"],
+                        "sheet": f"/api/sheet/{i}" if i in SHEETS else None, "bbox": SHEETS.get(i, {}).get("bbox")})
     return out
+
+
+@app.get("/api/sheet/{rec_id}")
+def sheet(rec_id: str) -> FileResponse:
+    path = image_path(rec_id, IMAGES)
+    if rec_id not in SHEETS or not path.exists():
+        raise HTTPException(404, "no drawing sheet for this part")
+    return FileResponse(path, media_type="image/png")
 
 
 @app.get("/api/mesh/{key}")
@@ -133,9 +154,13 @@ def scoreboard() -> dict:
 
 @app.post("/api/race")
 async def race(req: RaceRequest) -> StreamingResponse:
-    if not req.spec.strip():
+    image_mode = req.modality == "image"
+    if image_mode and req.example_id not in SHEETS:
+        raise HTTPException(422, "drawing-sheet mode needs a held-out example with a rendered sheet")
+    if not image_mode and not req.spec.strip():
         raise HTTPException(422, "empty spec")
     gold = BENCH[req.example_id]["gold_code"] if req.example_id in BENCH else None
+    sheet_url = prompts.data_url(image_path(req.example_id, IMAGES)) if image_mode else None
     lanes = race_lanes()
     queue: asyncio.Queue = asyncio.Queue()
     session = uuid.uuid4().hex[:10]
@@ -148,7 +173,10 @@ async def race(req: RaceRequest) -> StreamingResponse:
 
     async def run(lane: Lane) -> None:
         try:
-            msgs = prompts.messages(req.spec, [] if lane.dedicated else SHOTS)
+            if image_mode:
+                msgs = prompts.image_messages(sheet_url, SHEETS[req.example_id]["bbox"], [] if lane.dedicated else image_shots())
+            else:
+                msgs = prompts.messages(req.spec, [] if lane.dedicated else SHOTS)
             async for event in stream_chat(
                 lane,
                 msgs,

@@ -65,11 +65,13 @@
   <section class="top">
     <div class="card">
       <div class="row" style="margin-bottom:8px">
-        <select id="examples"><option value="">Held-out spec…</option></select>
+        <select id="examples"><option value="">Held-out part…</option></select>
+        <select id="modality"><option value="text">Input: written spec</option><option value="image">Input: drawing sheet</option></select>
         <button class="primary" id="go">Race ▶</button>
         <span class="muted" id="note">Pick a held-out spec (never seen in training) or write your own.</span>
       </div>
       <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
+      <div id="sheetbox" style="display:none"><img id="sheet" alt="drawing sheet" style="width:100%;max-width:560px;border-radius:8px;border:1px solid var(--line);background:#fff"><div class="muted" id="bboxline"></div></div>
     </div>
     <div class="card">
       <h3>Target part <span class="muted" id="tstats"></span></h3>
@@ -211,10 +213,22 @@ async function init() {
 }
 
 let currentExample = null;
+function showInput() {
+  const image = $("#modality").value === "image";
+  $("#spec").style.display = image ? "none" : "";
+  $("#sheetbox").style.display = image ? "" : "none";
+  if (image && currentExample && currentExample.sheet) {
+    $("#sheet").src = currentExample.sheet;
+    const b = currentExample.bbox;
+    $("#bboxline").textContent = b ? `Stated with the sheet: bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "";
+  }
+}
+$("#modality").onchange = showInput;
 $("#examples").onchange = (e) => {
   const x = EXAMPLES[e.target.value];
   currentExample = x || null;
   if (x) $("#spec").value = x.spec;
+  showInput();
 };
 $("#spec").oninput = () => {
   if (currentExample && $("#spec").value !== currentExample.spec) {
@@ -225,7 +239,8 @@ $("#spec").oninput = () => {
 
 $("#go").onclick = async () => {
   const spec = $("#spec").value.trim();
-  if (!spec) return;
+  if ($("#modality").value === "image" && !(currentExample && currentExample.sheet)) { $("#note").textContent = "Drawing-sheet mode needs a held-out part from the list."; return; }
+  if ($("#modality").value === "text" && !spec) return;
   const state = {};
   targetViewer.clear();
   $("#tstats").textContent = currentExample ? "loading…" : "(custom spec: no reference)";
@@ -244,7 +259,7 @@ $("#go").onclick = async () => {
   try {
     const res = await fetch("/api/race", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null }),
+      body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null, modality: $("#modality").value }),
     });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -338,6 +353,8 @@ async function loadScoreboard() {
 
 init().then(() => {
   const auto = new URLSearchParams(location.search).get("autorun");
+  const mode = new URLSearchParams(location.search).get("mode");
+  if (mode) { $("#modality").value = mode; }
   if (auto !== null && EXAMPLES[auto]) {
     $("#examples").value = auto;
     $("#examples").onchange({ target: { value: auto } });

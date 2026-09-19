@@ -1,0 +1,73 @@
+# OUR fine-tuned Qwen3-VL-4B (merged full weights) on vLLM, OpenAI-compatible with image input.
+# TEMPLATE: fill the two placeholders in `weights[0].source`, then
+#   baseten train checkpoint list --job-id <TRAINING_JOB_ID>      # confirm the checkpoint is named "merged" and SYNC is done
+#   baseten model push --dir deploy/vlm_ft --wait
+# Endpoint: https://model-<model_id>.api.baseten.co/environments/production/sync/v1   model="understudy-cad-vl"
+#
+# The training job must write a complete HF model dir to $BT_CHECKPOINT_DIR/merged, in bf16:
+#   model.merge_and_unload().save_pretrained(dir, safe_serialization=True)   # config.json, *.safetensors, generation_config.json
+#   AutoProcessor.from_pretrained(BASE).save_pretrained(dir)                 # preprocessor_config.json, tokenizer*, chat_template
+# vLLM reads the image processor and chat template from this dir too; without them multimodal requests fail.
+#
+# Weights come straight from Baseten Training storage via BDN's bt:// scheme (no download/re-upload):
+#   bt://<training project name>[@<job id>|latest][/<checkpoint name>]
+#   docs.baseten.co/development/model/bdn#baseten-training and docs.baseten.co/training/deployment
+# (`baseten train checkpoint deploy` only deploys LoRA checkpoints, so merged weights go through this config.)
+model_name: understudy-cad-vl
+model_metadata:
+  example_model_input:
+    model: understudy-cad-vl
+    messages:
+      - role: user
+        content:
+          - type: image_url
+            image_url:
+              url: "https://picsum.photos/id/237/200/300"
+          - type: text
+            text: "Write CadQuery code for this part."
+    stream: true
+    max_tokens: 1024
+  tags:
+    - openai-compatible
+base_image:
+  image: vllm/vllm-openai:v0.29.0-cu129
+weights:
+  - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged"  # e.g. bt://understudy-cad-vl-sft@abc1234/merged
+    mount_location: "/models/understudy"
+    # Baseten authenticates bt:// sources to your own training projects automatically; no auth block.
+secrets:
+  hf_access_token: null
+environment_variables:
+  VLLM_LOGGING_LEVEL: INFO
+  HF_HUB_OFFLINE: "1"  # everything vLLM needs is in the mounted checkpoint
+docker_server:
+  # `find` locates the dir holding config.json, so this works whether BDN mounts the checkpoint's files at the
+  # mount root or under rank-0/merged/.
+  start_command: >-
+    sh -c 'M=$(dirname "$(find /models/understudy -name config.json | head -n1)") && echo "serving $M" &&
+    exec vllm serve "$M"
+    --served-model-name understudy-cad-vl
+    --host 0.0.0.0
+    --port 8000
+    --dtype bfloat16
+    --max-model-len 8192
+    --max-num-seqs 32
+    --gpu-memory-utilization 0.90
+    --limit-mm-per-prompt.image 4
+    --limit-mm-per-prompt.video 0
+    --enable-prefix-caching'
+  readiness_endpoint: /health
+  liveness_endpoint: /health
+  predict_endpoint: /v1/chat/completions
+  server_port: 8000
+resources:
+  # L4 ($0.85/h, 300 GB/s) is enough to check it works. Decode speed is memory-bandwidth bound, so for the
+  # live race / p95 numbers switch to `accelerator: H100_40GB` (MIG, $3.75/h) or `accelerator: H100` ($6.50/h, 3.35 TB/s).
+  accelerator: L4
+  use_gpu: true
+runtime:
+  predict_concurrency: 32
+  health_checks:
+    startup_threshold_seconds: 1800
+    restart_threshold_seconds: 600
+    stop_traffic_threshold_seconds: 120
