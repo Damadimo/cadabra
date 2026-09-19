@@ -1,0 +1,46 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 500,
+  "shots": 0,
+  "retries": 0,
+  "modality": "image",
+  "best_of": 1,
+  "seed": 0,
+  "created": "2026-09-19T18:48:07",
+  "lanes": [
+    {
+      "lane": "specialist",
+      "label": "Cadabra 4B (ours)",
+      "model": "cadabra-vl",
+      "reasoning_effort": null,
+      "n": 500,
+      "n_infra_failed": 0,
+      "success": 0.748,
+      "success_ci95": [
+        0.71,
+        0.786
+      ],
+      "success_iou95": 0.71,
+      "run_rate": 0.998,
+      "mean_iou_aligned": 0.8874732213375037,
+      "median_chamfer": 0.002754920913189646,
+      "single_part": {
+        "n": 457,
+        "success": 0.7680525164113785
+      },
+      "multi_part": {
+        "n": 43,
+        "success": 0.5348837209302325
+      },
+      "latency_p50": 2.0304559795022215,
+      "latency_p95": 4.377106268748321,
+      "ttft_p50": 0.4778237500013347,
+      "output_tokens_mean": 200.356,
+      "attempts_mean": 1,
+      "oracle_success": null,
+      "cost_per_1k_usd": 0.21668504150222562,
+      "cost_note": "GPU $6.50/h amortized at concurrency 32",
+      "wall_s": 60.005088416000945
+    }
+  ]
+}

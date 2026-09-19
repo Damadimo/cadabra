@@ -35,13 +35,13 @@ Frontier models already turn a written CAD specification into code almost perfec
 held-out parts right from text. From a \emph{drawing} of the same part they do much worse. On 497 held-out parts
 rendered as a four-view drawing sheet, GLM-5.3 Flash gets 66.2\% and Kimi K3 61.8\%, and both fall to 19--37\% once a
 part has more than six faces. We post-trained Qwen3-VL-4B-Instruct on 30{,}260 rendered sheets paired with their
-reference CadQuery programs (LoRA, one epoch, 2.9 hours on one H100) and evaluated it on exactly the same parts with
-an executable metric: a program counts as correct only if it runs and the solid it builds overlaps the reference by
-at least 90\% (volumetric IoU, aligned over the 24 axis rotations). The model reaches 70.4\% with a single sample at
-\$0.19 per 1{,}000 parts, and 79.7\% when it samples eight programs and picks the one whose rendering best matches
-the input drawing --- a check that needs no answer key. That is 13.5 points above the best frontier model at
-comparable cost, and 5--194$\times$ cheaper per part. The margin is unchanged on the subset of parts with no
-near-duplicate in training.
+reference CadQuery programs (LoRA, two epochs: 2.9 hours on one H100, then 55 minutes on four) and evaluated it on
+exactly the same parts with an executable metric: a program counts as correct only if it runs and the solid it builds
+overlaps the reference by at least 90\% (volumetric IoU, aligned over the 24 axis rotations). The model reaches
+74.8\% with a single sample at \$0.22 per 1{,}000 parts, and 80.7\% when it samples eight programs and picks the one
+whose rendering best matches the input drawing --- a check that needs no answer key. That is 14.5 points above the
+best frontier model at comparable cost, and 4.5--167$\times$ cheaper per part. The margin is slightly wider on the
+subset of parts with no near-duplicate in training.
 \end{abstract}
 
 \section{The task}
@@ -125,9 +125,11 @@ We fine-tune \texttt{Qwen3-VL-4B-Instruct} with LoRA (rank 64, $\alpha=32$, drop
 projections only; the vision encoder and merger stay frozen. The loss covers the program text, never the prompt or
 the image tokens. Each sheet enters at $1024\times1024$, which the processor turns into exactly 1{,}024 visual
 tokens; rows are 1{,}569 tokens at the median. One epoch over 30{,}260 rows is 1{,}892 steps at an effective batch of
-16, learning rate $2\times10^{-4}$ with a cosine schedule, and takes 2.9 hours on one H100 (Baseten Training). The
-run ends by merging the adapter into the base weights, which vLLM then serves directly, and by grading itself on the
-500 held-out sheets inside the same job.
+16, learning rate $2\times10^{-4}$ with a cosine schedule, and takes 2.9 hours on one H100 (Baseten Training). A
+second epoch continues that adapter with a new data order at $1\times10^{-4}$ over four H100s (DDP, effective batch
+32, 946 steps, 55 minutes) and is the model reported here; it lifts medium parts from 39.5\% to 56.3\%. Each run
+ends by merging the adapter into the base weights, which vLLM then serves directly, and by grading itself on the 500
+held-out sheets inside the same job.
 
 \section{Grading}
 \label{sec:grading}
@@ -165,8 +167,8 @@ every frontier lane at high reasoning effort and with two worked examples, ours 
 \toprule
 & All [95\% CI] & Simple & Medium & Complex & Multi & Runs & \$/1k & p50 / p95 \\
 \midrule
-\textbf{Ours, best of 8} & \textbf{79.7} [76--83] & \textbf{96.6} & \textbf{58.8} & \textbf{30.5} & \textbf{53.5} & 100.0 & 1.23 & 2.2 / 22.1\,s \\
-\textbf{Ours, 1 sample} & \textbf{70.4} [66--74] & 89.3 & 44.5 & 20.3 & 46.5 & 98.4 & \textbf{0.19} & \textbf{1.9 / 5.3\,s} \\
+\textbf{Ours, best of 8} & \textbf{80.7} [77--84] & \textbf{95.6} & \textbf{61.3} & \textbf{39.0} & \textbf{58.1} & 100.0 & 1.19 & 2.3 / 14.3\,s \\
+\textbf{Ours, 1 sample} & \textbf{74.8} [71--79] & 92.5 & 52.1 & 25.4 & 53.5 & 99.8 & \textbf{0.22} & \textbf{2.0 / 4.4\,s} \\
 GLM-5.3 Flash (high) & 66.2 [62--70] & 85.9 & 37.0 & 18.6 & 39.5 & 98.6 & 1.00 & 3.7 / 46.2\,s \\
 Kimi K3 (high) & 61.8 [58--66] & 81.5 & 30.3 & 18.6 & 39.5 & 95.8 & 36.82 & 10.4 / 81.9\,s \\
 Qwen3-VL-4B, untuned & 14.7 [11--18] & 19.4 & 8.4 & 1.7 & 16.3 & 34.2 & --- & 20.3 / 157.5\,s \\
@@ -183,22 +185,22 @@ Confidence intervals are bootstrap 95\%.}
 \centering
 \includegraphics[width=\textwidth]{results_by_tier}
 \caption{The same numbers by part complexity, with 95\% confidence intervals. Our lead is widest exactly where the
-frontier models are weakest: medium parts (58.8\% vs 37.0\%) and complex parts (30.5\% vs 18.6\%).}
+frontier models are weakest: medium parts (61.3\% vs 37.0\%) and complex parts (39.0\% vs 18.6\%).}
 \label{fig:tier}
 \end{figure}
 
-Two observations. First, a single sample already beats both frontier models while costing 5$\times$ less than
-GLM-5.3 Flash and 194$\times$ less than Kimi K3, and it answers in 1.9\,s against 3.7\,s and 10.4\,s. Second,
-best-of-8 costs about as much per part as Flash and adds 9.3 points, because the verifier recovers 97\% of what
-sampling made available (its oracle, the share of parts where any of the eight was correct, is 81.9\%).
+Two observations. First, a single sample already beats both frontier models while costing 4.5$\times$ less than
+GLM-5.3 Flash and 167$\times$ less than Kimi K3, and it answers in 2.0\,s against 3.7\,s and 10.4\,s. Second,
+best-of-8 costs about as much per part as Flash and adds 5.9 points, because the verifier recovers 96\% of what
+sampling made available (its oracle, the share of parts where any of the eight was correct, is 83.7\%).
 
 \paragraph{The verifier helps any model.} Running the frontier models with the same best-of-4 procedure on the 65
 medium and complex parts lifts Kimi K3 from 27.7\% to 48.3\% and GLM-5.3 Flash from 32.3\% to 45.9\%. It is a general
 technique; it is simply cheap for a 4B model and expensive for a frontier one (\$251.67 per 1{,}000 parts for K3).
 
 \paragraph{Learning curve.} Figure~\ref{fig:curve} scores intermediate checkpoints on the same parts. The untuned
-model gets 13.2\%; after 200 steps (3{,}200 examples, 11\% of the epoch) it matches Kimi K3, and it passes GLM-5.3
-Flash around step 1{,}000.
+model gets 13.2\%; after 200 steps (3{,}200 examples, 11\% of the first epoch) it matches Kimi K3, it passes GLM-5.3
+Flash around step 1{,}000, and the second epoch takes it to 77.0\%.
 
 \begin{figure}[h]
 \centering
@@ -220,9 +222,9 @@ every alternative.}
 
 Three checks.
 
-\paragraph{Training.} One pass over the data; nothing was seen twice. Validation loss fell monotonically to the last
-step (0.2119 $\rightarrow$ 0.1583) and validation token accuracy rose to 94.4\%, so the run stopped while still
-improving rather than after a turn upward.
+\paragraph{Training.} Two passes, each with its own data order. Validation loss fell monotonically to the last step of
+both (epoch 1: 0.2119 $\rightarrow$ 0.1583; epoch 2: 0.1598 $\rightarrow$ 0.1490) and validation token accuracy rose
+to 94.7\%, so training stopped while still improving rather than after a turn upward.
 
 \paragraph{Exact overlap.} Zero benchmark source parts appear in training, and zero training parts share a benchmark
 part's geometry signature, by construction.
@@ -230,8 +232,8 @@ part's geometry signature, by construction.
 \paragraph{Near-duplicates.} 57 of 500 benchmark parts have a training part within 1\% on every bounding-box axis with
 the same face and part count (none within 0.1\%). Those parts are easier for every model, including ones that never
 saw our data, so the question is whether \emph{our} advantage depends on them. It does not
-(Table~\ref{tab:leakage}): our margin over the best frontier model is +13.5 points on the 443 parts with no
-near-duplicate, the same as the +13.5 overall.
+(Table~\ref{tab:leakage}): our margin over the best frontier model is +14.9 points on the 443 parts with no
+near-duplicate, slightly wider than the +14.5 overall.
 
 \begin{table}[h]
 \centering\small
@@ -239,8 +241,8 @@ near-duplicate, the same as the +13.5 overall.
 \toprule
 & Near-duplicate (57) & No near-duplicate (443) \\
 \midrule
-Ours, best of 8 & 96.5 & \textbf{77.4} \\
-Ours, 1 sample & 93.0 & 67.5 \\
+Ours, best of 8 & 94.7 & \textbf{78.8} \\
+Ours, 1 sample & 94.7 & 72.2 \\
 GLM-5.3 Flash (high) & 84.2 & 63.9 \\
 Kimi K3 (high) & 73.7 & 60.3 \\
 \bottomrule
@@ -255,7 +257,7 @@ Kimi K3 (high) & 73.7 & 60.3 \\
 The model is trained and tested on one distribution: DeepCAD-style mechanical parts rendered by our own renderer.
 Nothing here shows it transfers to scanned drawings, other CAD dialects, or drawings with dimension callouts instead
 of a stated bounding box. The bounding box is given, which removes the global scale problem. Complex parts remain
-the weak point at 30.5\%, so most of the task is still open. Finally, our cost figure assumes a busy GPU; at low
+the weak point at 39.0\%, so much of the task is still open. Finally, our cost figure assumes a busy GPU; at low
 volume a per-token API is cheaper than a dedicated one.
 
 \section{Reproducing this}
@@ -265,7 +267,9 @@ python scripts/audit_cadcoder.py            # run every reference program, check
 python -m cadabra.cad.splits             # benchmark/training splits, held out by source part and geometry
 python -m cadabra.cad.render --split bench    # drawing sheets
 python -m cadabra.cad.build_vlm          # training rows + images
-cd training/vlm && baseten train push --config config_vlm.py --job-name sft   # LoRA SFT on H100(s)
+cd training/vlm && baseten train push --config config_vlm.py --job-name sft   # epoch 1, one H100
+GPUS=4 CONTINUE_JOB=<job> CONTINUE_CHECKPOINT=checkpoint-1892 LR=1e-4 DATA_SEED=43 \
+  baseten train push --config config_vlm.py --job-name sft-epoch2              # epoch 2, four H100s
 ./scripts/deploy_vlm.sh <job_id> H100       # merge -> vLLM on Baseten
 python -m cadabra.cad.bench --modality image --lanes specialist --n 0 --shots 0 --tag ours-img
 python scripts/leaderboard.py --latest sota-img,ours-img --common --out-json data/demo/scoreboard.json

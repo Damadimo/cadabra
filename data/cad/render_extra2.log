@@ -32,3 +32,5 @@
   500/1253
   1000/1253
 rendered 1253, failed 0, in 153s -> /Users/damadimo/cadabra/data/cad/img
+/Users/damadimo/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 5 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

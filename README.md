@@ -18,7 +18,7 @@ CAD-Coder (Apache-2.0) ─► audit: run ~83K reference programs  ─► clean s
 render every part as a drawing sheet: FRONT / TOP / RIGHT at one scale + isometric, bounding box as text
         │
         ▼
-Baseten Training (1× H100): LoRA SFT of Qwen3-VL-4B-Instruct on 30,260 sheets -> CadQuery, loss on the code only
+Baseten Training: LoRA SFT of Qwen3-VL-4B-Instruct on 30,260 sheets -> CadQuery, 2 epochs (1x H100, then 4x H100)
         │
         ▼
 Baseten deployment: merged weights served by vLLM straight from the training job (training_checkpoints)
@@ -31,7 +31,7 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 | Step | Baseten product |
 |---|---|
 | Frontier baselines (Kimi K3, GLM-5.3 Flash, both vision models, high reasoning effort) | Model APIs |
-| Fine-tune Qwen3-VL-4B-Instruct on rendered drawing sheets | Training Jobs on 1× H100 |
+| Fine-tune Qwen3-VL-4B-Instruct on rendered drawing sheets | Training Jobs: 2.9 h on 1× H100, then a second epoch on 4× H100 |
 | Serve our model (merged weights, or base + LoRA from any checkpoint) | Deployments that pull the training job's checkpoints, vLLM |
 | Built with | Baseten Switch (Claude Code on open models) |
 
@@ -72,8 +72,8 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 
 | Model | Correct overall [95% CI] | Simple (≤ 6 faces) | Medium (7–12) | Complex (≥ 13) | Multi-part | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|---|---|
-| **Cadabra 4B, best of 8 (ours)** | **79.7% [76–83]** | **96.6%** | **58.8%** | **30.5%** | **53.5%** | $1.23 | 2.2 s |
-| **Cadabra 4B, 1 sample (ours)** | **70.4% [66–74]** | 89.3% | 44.5% | 20.3% | 46.5% | **$0.19** | **1.9 s** |
+| **Cadabra 4B, best of 8 (ours)** | **80.7% [77–84]** | **95.6%** | **61.3%** | **39.0%** | **58.1%** | $1.19 | 2.3 s (p95 14 s) |
+| **Cadabra 4B, 1 sample (ours)** | **74.8% [71–79]** | 92.5% | 52.1% | 25.4% | 53.5% | **$0.22** | **2.0 s (p95 4.4 s)** |
 | GLM-5.3 Flash (high) | 66.2% [62–70] | 85.9% | 37.0% | 18.6% | 39.5% | $1.00 | 3.7 s (p95 37 s) |
 | Kimi K3 (high) | 61.8% [58–66] | 81.5% | 30.3% | 18.6% | 39.5% | $36.82 | 10.4 s (p95 89 s) |
 | Untuned Qwen3-VL-4B | 14.7% [11–18] | 19.4% | 8.4% | 1.7% | 16.3% | | |
@@ -82,10 +82,11 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 
 Every lane on the same 497 held-out parts (319 simple, 119 medium, 59 complex; 43 multi-part), one H100 for ours.
 Best of 8 = eight samples ranked by render-and-compare, which needs no answer key; its oracle (any of the 8 correct)
-is 82.0%, so the verifier captures 97% of what sampling made available. One sample: p95 5.0 s, 98.4% of programs run.
+is 83.7%, so the verifier captures 96% of what sampling made available. 99.8% of single-sample programs run, 100% of
+best-of-8 ones.
 
-**Learning curve** (greedy, the frontier's 200 parts): 13% untuned → 61% at step 200 → 68% at step 1000 → **73.5% after
-one epoch**, vs GLM-5.3 Flash 65% and Kimi K3 61%; on medium/complex parts **41.5%** vs 32% / 28%.
+**Learning curve** (greedy, the frontier's 200 parts): 13% untuned → 61% at step 200 → 68% at step 1,000 → 73.5% after
+one epoch → **77.0% after two**, vs GLM-5.3 Flash 65% and Kimi K3 61%; on medium/complex parts **47.7%** vs 32% / 28%.
 
 ![learning curve](docs/learning_curve.png)
 
@@ -95,8 +96,8 @@ GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is i
 
 ## Is it overfitting, or memorizing the benchmark?
 
-- **One pass over the data, and validation loss fell to the last step**: 0.212 → 0.158, token accuracy 92.7% → 94.4%.
-  Nothing was seen twice, and the curve was still improving when the epoch ended.
+- **Validation loss fell to the last step of both epochs**: 0.212 → 0.158 in epoch 1, 0.160 → 0.149 in epoch 2, with
+  token accuracy rising to 94.7%. Neither pass turned upward.
 - **No benchmark part is in training**: the 500 benchmark parts are held out by source part (0 shared), and every
   training part with a benchmark part's exact geometry signature was dropped (1,886 of them).
 - **Near-duplicates don't explain the result** (`scripts/leakage_check.py`). 57 of 500 benchmark parts have a training
@@ -105,12 +106,12 @@ GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is i
 
   | | Near-duplicate (57) | No near-duplicate (443) |
   |---|---|---|
-  | **Ours, best of 8** | 96.5% | **77.4%** |
-  | **Ours, 1 sample** | 93.0% | 67.5% |
+  | **Ours, best of 8** | 94.7% | **78.8%** |
+  | **Ours, 1 sample** | 94.7% | 72.2% |
   | GLM-5.3 Flash (high) | 84.2% | 63.9% |
   | Kimi K3 (high) | 73.7% | 60.3% |
 
-  Our margin over the best frontier model is **+13.5 points on the clean subset**, the same as the +13.5 overall.
+  Our margin over the best frontier model is **+14.9 points on the clean subset**, slightly wider than the +14.5 overall.
 
 ## The data
 
