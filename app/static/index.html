@@ -4,73 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cadabra</title>
+<link rel="icon" href="data:,">
 <style>
-  :root {
-    --green: #19E76E; --green-deep: #00B86B; --green-dark: #06331D;
-    --card: #FFFFFF; --inset: #F2FBF5; --line: #CDEBD9; --line-2: #A7DCBE;
-    --ink: #06210F; --muted: #4C6B58; --pink: #FFA9FD; --bad: #B03A24;
+    :root {
+    --bg: #F5F8F4; --surface: #FFFFFF; --inset: #FAFCF9; --line: #E1EADD; --line-2: #CBD8C6;
+    --ink: #101511; --ink-2: #4D584E; --muted: #74806F; --green: #19E76E; --green-deep: #00B86B;
+    --pink: #FFA9FD; --bad: #B4482C;
+    --mono: ui-monospace, "SFMono-Regular", "Chivo Mono", "IBM Plex Mono", Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--green); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 18px 28px 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  h1 { margin: 0; font-size: 19px; letter-spacing: -.01em; }
-  .tag { color: var(--green-dark); opacity: .85; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14.5px/1.55 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-weight: 500; letter-spacing: -.025em; margin: 0; }
+  h1 { font-size: 21px; }
+  h2 { font-size: 16px; }
+  h3 { font-size: 13.5px; }
+  .label { font: 400 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .01em; }
   .muted { color: var(--muted); }
-  nav { margin-left: auto; display: flex; gap: 6px; }
-  nav button { background: rgba(255,255,255,.4); border: 1px solid rgba(6,51,29,.16); color: var(--green-dark); border-radius: 999px; padding: 7px 16px; }
-  nav button.on { background: var(--card); border-color: var(--card); color: var(--ink); font-weight: 650; }
-  main { padding: 20px 28px 48px; display: grid; gap: 18px; max-width: 1500px; }
+  header { padding: 20px 32px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  header .sub { color: var(--ink-2); font-size: 13.5px; max-width: 620px; }
+  nav { margin-left: auto; display: flex; gap: 8px; }
+  nav button { background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 999px; padding: 7px 18px; font-size: 13.5px; }
+  nav button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  main { padding: 22px 32px 56px; display: grid; gap: 20px; max-width: 1560px; }
   .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  select, button, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line-2); border-radius: 9px; padding: 8px 12px; }
-  button { cursor: pointer; }
-  button:hover { border-color: var(--accent-deep); }
-  button.primary { background: var(--green-dark); border-color: var(--green-dark); color: #E9FFF2; font-weight: 600; }
-  button:disabled { opacity: .55; cursor: default; }
-  textarea { width: 100%; min-height: 120px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
-  label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; box-shadow: 0 1px 2px rgba(6,51,29,.06); }
-  .card h2, .card h3 { margin: 0; font-size: 14px; }
-  .split { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
-  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
-  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: block; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
-  .cards .card { display: grid; gap: 8px; align-content: start; border-top: 3px solid var(--line-2); }
-  .cards .card.ours { border-top-color: var(--green); }
-  .card.truth { border-top-color: var(--pink); }
-  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .head h3 { line-height: 1.3; }
+  select, button, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 16px; }
+  textarea { border-radius: 12px; }
+  button { cursor: pointer; transition: border-color .15s, background .15s; }
+  button:hover { border-color: var(--ink); }
+  button.primary { background: var(--green); border-color: var(--green); color: #05220F; font-weight: 500; }
+  button.primary:hover { background: var(--green-deep); border-color: var(--green-deep); }
+  button:disabled { opacity: .45; cursor: default; }
+  textarea { width: 100%; min-height: 110px; font: 12px/1.5 var(--mono); resize: vertical; padding: 12px 14px; }
+  label.check { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 13.5px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; min-width: 0; }
+  .split { display: grid; grid-template-columns: minmax(260px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 1020px) { .split { grid-template-columns: 1fr; } }
+  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; display: block; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--inset); border-radius: 999px; padding: 7px 14px; font-size: 13px; color: var(--ink); }
-  .chip .mark { font-weight: 700; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: 7px 15px; font-size: 13px; color: var(--ink-2); }
+  .chip:hover { border-color: var(--ink); }
+  .chip .mark { font-weight: 600; }
   .chip.ok .mark { color: var(--green-deep); }
   .chip.no .mark { color: var(--bad); }
   .chip.truth { border-color: var(--pink); }
-  .chip.on { background: var(--green-dark); border-color: var(--green-dark); color: #EAFFF2; }
-  .chip.on .mark { color: #9CF3C2; }
-  .chip.on.no .mark { color: #FFB7A3; }
-  .chip .iou { font-variant-numeric: tabular-nums; opacity: .75; font-size: 12px; }
-  .stage { height: 460px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 12px; }
-  .stage canvas { display: block; width: 100%; height: 100%; }
-  .stage .hint { position: absolute; left: 10px; bottom: 8px; font-size: 11.5px; color: var(--muted); pointer-events: none; }
-  .viewer { height: 190px; border-radius: 8px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
-  .viewer canvas { display: block; width: 100%; height: 100%; }
-  .viewer .hint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; color: var(--muted); pointer-events: none; }
-  .pill { display: inline-block; white-space: nowrap; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); background: var(--inset); }
-  .pill.ok { color: #06682F; border-color: var(--green-deep); background: #E4FCEE; }
-  .pill.no { color: var(--bad); border-color: #E8C4B9; background: #FDF1EE; }
-  .stats { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .slug { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
-  .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .m { background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-  .m b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
-  .m span { color: var(--muted); font-size: 11px; }
-  details pre { margin: 6px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 240px; overflow: auto; font: 11.5px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  th, td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .chip.on .mark { color: var(--green); }
+  .chip.on.no .mark { color: #FF9B78; }
+  .chip .iou { font: 11.5px var(--mono); opacity: .7; }
+  .stage { height: 470px; border-radius: 14px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 14px; }
+  .stage canvas, .viewer canvas { display: block; width: 100%; height: 100%; }
+  .stage .hint, .viewer .hint { position: absolute; left: 12px; bottom: 10px; font: 11px var(--mono); color: var(--muted); pointer-events: none; }
+  .viewer { height: 190px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .pill { display: inline-block; white-space: nowrap; font-size: 12px; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); }
+  .pill.ok { color: #06682F; border-color: var(--green-deep); background: #ECFCF2; }
+  .pill.no { color: var(--bad); border-color: #E8CCC2; background: #FDF2EE; }
+  .stats { font: 12.5px/1.5 var(--mono); color: var(--ink-2); }
+  .stats b { font-weight: 600; }
+  .slug { font: 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  .foot { font: 11px/1.5 var(--mono); color: var(--muted); margin-top: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .cards .card { display: grid; gap: 9px; align-content: start; }
+  .cards .card.ours { border-color: var(--green-deep); }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .m { background: var(--inset); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; }
+  .m b { display: block; font: 500 15px var(--mono); }
+  .m span { color: var(--muted); font-size: 10.5px; }
+  details pre { margin: 8px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 12px; max-height: 280px; overflow: auto; font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  summary { cursor: pointer; color: var(--muted); font: 11px var(--mono); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   th:first-child, td:first-child { text-align: left; }
-  th { color: var(--muted); font-weight: 500; }
-  tr.ours td { background: #EFFDF4; font-weight: 600; }
+  th { font: 400 11px var(--mono); color: var(--muted); }
+  td { font-size: 13.5px; }
+  tbody tr.ours td { background: #F3FCF6; font-weight: 500; }
   .scroll { overflow-x: auto; }
   [hidden] { display: none !important; }
 </style>
@@ -78,7 +85,7 @@
 <body>
 <header>
   <h1>Cadabra</h1>
-  <span class="tag">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program. The geometry decides who is right.</span>
+  <span class="sub">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program that builds the part. Every answer is executed and compared with the reference solid.</span>
   <nav>
     <button id="tab-compare" class="on">Compare</button>
     <button id="tab-race">Live race</button>
@@ -91,13 +98,14 @@
       <select id="parts"></select>
       <label class="check"><input type="checkbox" id="onlywins"> only parts both frontier models get wrong</label>
       <button id="shuffle">Shuffle</button>
-      <button id="raceThis">Race this part live ▶</button>
-      <span class="muted" id="partnote"></span>
+      <button id="raceThis">Race this part live</button>
+      <span class="label" id="partnote"></span>
     </div>
     <div class="split" style="margin-top:14px">
       <div class="card sheet">
-        <h3>Input · drawing sheet</h3>
-        <div class="muted" style="font-size:12px;margin:4px 0 8px" id="bboxline"></div>
+        <div class="label">input · drawing sheet</div>
+        <h3 style="margin:6px 0 4px" id="parttitle"></h3>
+        <div class="label" style="margin-bottom:10px" id="bboxline"></div>
         <img id="sheet" alt="drawing sheet">
       </div>
       <div class="card">
@@ -108,7 +116,9 @@
           <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
           <span class="stats" id="stagestats"></span>
         </div>
-        <details style="margin-top:8px"><summary>code</summary><pre id="stagecode"></pre></details>
+        <details style="margin-top:10px"><summary>program</summary><pre id="stagecode"></pre></details>
+        <div class="foot">IoU is volumetric overlap with the reference solid, maximised over the 24 axis rotations; a part counts as
+          correct at 0.9 or above. Time, cost and tokens are what that model actually used on this part in the benchmark run.</div>
       </div>
     </div>
   </section>
@@ -122,18 +132,24 @@
     </div>
     <div class="split" style="margin-top:14px">
       <div class="card sheet">
-        <div id="sheetbox"><h3>Input · drawing sheet</h3><div class="muted" style="font-size:12px;margin:4px 0 8px" id="rbbox"></div><img id="rsheet" alt="drawing sheet" hidden></div>
+        <div id="sheetbox"><div class="label">input · drawing sheet</div><div class="label" style="margin:6px 0 10px" id="rbbox"></div><img id="rsheet" alt="drawing sheet" hidden></div>
         <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
         <div style="margin-top:10px"><h3>Target part <span class="muted" id="tstats"></span></h3>
           <div class="viewer" id="target" style="margin-top:6px"><span class="hint">reference solid</span></div></div>
       </div>
-      <div class="cards" id="lanes"></div>
+      <div>
+        <div class="cards" id="lanes"></div>
+        <div class="foot">Frontier lanes call Baseten Model APIs at high reasoning effort with two worked examples; ours gets the
+          zero-shot prompt it was trained on and samples 8 programs, keeping the best match to the drawing. $/part for ours is
+          GPU seconds at concurrency 1, an upper bound; the table below amortises the GPU over measured throughput.</div>
+      </div>
     </div>
   </section>
 
   <section class="card">
     <h2>Held-out benchmark <span class="muted" id="sbmeta"></span></h2>
-    <div class="scroll" id="scoreboard" style="margin-top:8px"><span class="muted">No benchmark run yet.</span></div>
+    <div class="scroll" id="scoreboard" style="margin-top:10px"><span class="muted">No benchmark run yet.</span></div>
+    <div class="foot" id="sbfoot"></div>
   </section>
 </main>
 
@@ -152,8 +168,8 @@ const loader = new STLLoader();
 const OURS = 0x10b85a, TRUTH = 0x8a9a8e, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
 
 class Viewer {
-  constructor(el, color) {
-    this.el = el; this.color = color; this.part = null; this.target = null;
+  constructor(el, color, zoom = 1.05) {
+    this.el = el; this.color = color; this.zoom = zoom; this.part = null; this.target = null;
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (err) {  // no WebGL: scores and code still work
@@ -226,7 +242,7 @@ class Viewer {
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const r = box.getSize(new THREE.Vector3()).length() / 2 || 1;
-    const d = (r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2))) * 1.05;
+    const d = (r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2))) * this.zoom;
     this.controls.target.copy(c);
     this.camera.position.copy(c).add(new THREE.Vector3(1, 0.75, 1.15).normalize().multiplyScalar(d));
     this.camera.near = d / 200; this.camera.far = d * 200;
@@ -246,7 +262,7 @@ for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTa
 
 /* ---------- compare: one stage, chips pick whose answer it shows ---------- */
 let PARTS = [], DATA = null, picked = 1;
-const stage = new Viewer($("#stage"), OURS);
+const stage = new Viewer($("#stage"), OURS, 0.85);
 
 async function loadParts() {
   PARTS = await (await fetch("/api/parts")).json();
@@ -294,9 +310,9 @@ async function select(i) {
   $("#stagehint").textContent = c.truth ? "the dataset's reference solid"
     : overlay ? "prediction (solid) with the reference ghosted over it" : "prediction only";
   $("#stagestats").innerHTML = c.truth
-    ? `${c.stats ? c.stats.n_faces + " faces · the answer every model is scored against" : ""}`
-    : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B03A24">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
-      ` · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} tokens` +
+    ? `${c.stats ? c.stats.n_faces + " faces · what every model is scored against" : ""}`
+    : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B4482C">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
+      ` · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} output tokens` +
       (c.mesh ? "" : " · " + esc((c.error || "did not build").slice(0, 70)));
   $("#stagecode").textContent = c.code || "";
   if (c.truth) { if (c.mesh) await stage.setPart(c.mesh, TRUTH); return; }
@@ -306,13 +322,23 @@ async function select(i) {
 
 async function showPart(id) {
   $("#parts").value = id;
-  $("#partnote").textContent = "building…";
-  DATA = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
+  $("#partnote").textContent = "building the solids…";
+  $("#chips").innerHTML = "";
+  let res;
+  try {
+    res = await fetch(`/api/compare/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(await res.text());
+    DATA = await res.json();
+  } catch (err) {
+    $("#partnote").textContent = "could not load this part: " + String(err).slice(0, 80);
+    return;
+  }
   $("#sheet").src = DATA.sheet;
   const b = DATA.bbox;
-  $("#bboxline").textContent = `${DATA.title} · ${DATA.tier_faces} faces${DATA.n_parts > 1 ? ", " + DATA.n_parts + " parts" : ""}` +
-    (b ? ` · bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "");
-  $("#partnote").textContent = "answers from the saved benchmark runs";
+  $("#parttitle").textContent = DATA.title;
+  $("#bboxline").textContent = `${DATA.tier_faces} faces${DATA.n_parts > 1 ? " · " + DATA.n_parts + " parts" : ""}` +
+    (b ? ` · bounding box ${b[0].toFixed(4)} × ${b[1].toFixed(4)} × ${b[2].toFixed(4)}` : "");
+  $("#partnote").textContent = "held out from training · answers replayed from the benchmark runs";
   const want = +(new URLSearchParams(location.search).get("model") ?? 1);
   await select(Math.max(0, Math.min(Number.isFinite(want) ? want : 1, entries().length - 1)));
 }
@@ -499,6 +525,10 @@ async function loadScoreboard() {
   const sb = await (await fetch("/api/scoreboard")).json();
   if (!sb || !sb.lanes) return;
   $("#sbmeta").textContent = `· ${sb.n} held-out parts, never seen in training`;
+  const runs = [...new Set(sb.lanes.flatMap((l) => l.runs || []))];
+  $("#sbfoot").textContent = `Success = the program runs and its solid overlaps the reference by 0.9 or more (aligned IoU). `
+    + `Cost is API list price for the frontier lanes and the GPU hourly price over measured throughput for ours. `
+    + `Runs: ${runs.join(", ")}.`;
   const tier = (l, k) => (l.tiers && l.tiers[k] ? pct(l.tiers[k].success) : "–");
   $("#scoreboard").innerHTML = `<table><thead><tr>
       <th>Model</th><th>Correct [95% CI]</th><th>Simple</th><th>Medium</th><th>Complex</th><th>Multi-part</th>

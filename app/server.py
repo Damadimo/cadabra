@@ -82,7 +82,7 @@ def compare_runs() -> dict[str, list[dict]]:
             effort = lane.get("reasoning_effort")
             label = lane.get("label") if lane.get("label") not in (None, r["lane"]) else PRETTY.get(r["model"], r["lane"]) + (f" ({effort})" if effort else "")
             out.setdefault(r["id"], {})[(r["lane"], best_of)] = {
-                "key": f"{r['lane']}#{best_of}", "lane": r["lane"], "best_of": best_of, "label": label + (f" · best of {best_of}" if best_of > 1 else ""),
+                "key": f"{r['lane']}#{best_of}", "lane": r["lane"], "best_of": best_of, "label": label + (f" · best of {best_of}" if best_of > 1 else " · 1 sample" if r["lane"] == "specialist" else ""),
                 "model": r["model"], "ours": r["lane"] == "specialist", "run": found[-1].name,
                 "success": bool(r["success"]), "runs": bool(r["runs"]), "iou_aligned": r.get("iou_aligned"),
                 "e2e_s": r.get("e2e_s"), "cost_usd": r.get("cost_usd"), "output_tokens": r.get("output_tokens"),
