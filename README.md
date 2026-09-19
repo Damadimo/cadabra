@@ -75,9 +75,17 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 | **Understudy-CAD 4B (ours)** | _after training_ | | | | | |
 | GLM-5.3 Flash (high) | 66.2% [62–70] | 85.7% | 37.0% | 18.6% | $1.00 | 3.7 s |
 | Kimi K3 (high) | 61.8% [58–66] | 81.4% | 30.3% | 18.6% | $36.82 | 10.4 s |
-| Untuned Qwen3-VL-4B | _after deploy_ | | | | | |
+| Untuned Qwen3-VL-4B | 14.7% (all 500) | | | | | |
 
-All 500 held-out parts (322 simple, 119 medium, 59 complex; 43 multi-part). Text specs for comparison: Kimi K3 95.0%,
+All 500 held-out parts (322 simple, 119 medium, 59 complex; 43 multi-part).
+
+**Learning curve** (greedy, the frontier's 200 parts): 13% untuned → 61% at step 200 → **68% at step 1000**, already past
+GLM-5.3 Flash (65%) and Kimi K3 (61%); on medium/complex parts 42% vs 32% / 28%.
+
+![learning curve](docs/learning_curve.png)
+
+**The verifier helps any model.** Best-of-4 with render-and-compare on the 65 medium/complex parts: Kimi K3 28% → 48%
+($252 per 1,000 parts), GLM-5.3 Flash 32% → 46%. Text specs for comparison: Kimi K3 95.0%,
 GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is in [WORKLOG.md](WORKLOG.md).
 
 ## Quickstart
