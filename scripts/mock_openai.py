@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import random
+import re
 import time
 import uuid
 
@@ -26,7 +27,13 @@ from understudy.config import ROOT
 from understudy.data import read_jsonl
 
 app = FastAPI()
-REFERENCE = {r["spec"].strip(): r["gold_code"] for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")}
+BENCH = read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")
+REFERENCE = {r["spec"].strip(): r["gold_code"] for r in BENCH}
+_INDEX = ROOT / "data" / "cad" / "img" / "index.json"
+BY_BBOX = {}
+if _INDEX.exists():
+    boxes = json.loads(_INDEX.read_text())
+    BY_BBOX = {tuple(f"{v:.4f}" for v in boxes[r["id"]]["bbox"]): r["gold_code"] for r in BENCH if r["id"] in boxes}
 FALLBACK = "import cadquery as cq\n\nr = cq.Workplane('XY').box(0.6, 0.4, 0.1)\n"
 # model-name fragment -> (seconds to first token, output tokens/sec, reasoning tokens, chance of a wrong answer)
 PROFILES = {"Kimi-K3": (0.9, 110, 400, 0.15), "GLM-5.3": (0.8, 120, 300, 0.35)}
@@ -37,9 +44,18 @@ def profile(model: str) -> tuple:
     return next((v for k, v in PROFILES.items() if k in model), DEDICATED)
 
 
+def _text(content) -> str:
+    if isinstance(content, list):  # image requests: take the text part (it carries the bounding box)
+        return " ".join(p.get("text", "") for p in content if p.get("type") == "text")
+    return content or ""
+
+
 def answer(messages: list[dict], wrong_rate: float) -> str:
-    spec = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "").strip()
-    code = REFERENCE.get(spec, FALLBACK)
+    spec = next((_text(m.get("content")) for m in reversed(messages) if m.get("role") == "user"), "").strip()
+    code = REFERENCE.get(spec)
+    if code is None:
+        found = re.search(r"X (\d+\.\d+), Y (\d+\.\d+), Z (\d+\.\d+)", spec)
+        code = BY_BBOX.get(found.groups(), FALLBACK) if found else FALLBACK
     roll = random.random()
     if roll < wrong_rate / 2:
         code = code.replace("extrude(", "extrude(2 * ")  # builds, wrong part
@@ -60,7 +76,7 @@ async def chat(request: Request):
     model = body.get("model", "")
     ttft, tps, reasoning_tokens, wrong_rate = profile(model)
     content = answer(body.get("messages", []), wrong_rate)
-    prompt_tokens = sum(len(m.get("content") or "") for m in body.get("messages", [])) // 4
+    prompt_tokens = sum(len(_text(m.get("content"))) for m in body.get("messages", [])) // 4
     usage = {
         "prompt_tokens": prompt_tokens,
         "completion_tokens": reasoning_tokens + len(content) // 4,

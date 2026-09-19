@@ -47,6 +47,7 @@ def image_shots() -> list[dict]:
     ]
 MESHES: OrderedDict[str, bytes] = OrderedDict()
 POOL: CadPool | None = None
+REPLAYS = ROOT / "data" / "demo" / "replays"  # recorded races: offline fallback for the live demo
 
 
 def race_lanes() -> list[Lane]:
@@ -99,6 +100,7 @@ class RaceRequest(BaseModel):
     spec: str = ""
     example_id: str | None = None
     modality: str = "text"  # "text": the written spec; "image": the rendered drawing sheet
+    record: bool = False  # save the event stream + meshes under data/demo/replays/ for offline replay
 
 
 @app.get("/")
@@ -146,8 +148,24 @@ def sheet(rec_id: str) -> FileResponse:
 @app.get("/api/mesh/{key}")
 def mesh(key: str) -> Response:
     if key not in MESHES:
-        raise HTTPException(404, "unknown mesh")
+        saved = REPLAYS / "meshes" / f"{key}.stl"
+        if not re.fullmatch(r"[0-9a-f]{16}", key) or not saved.exists():
+            raise HTTPException(404, "unknown mesh")
+        return Response(saved.read_bytes(), media_type="model/stl")
     return Response(MESHES[key], media_type="model/stl")
+
+
+@app.get("/api/replays")
+def replays() -> list[str]:
+    return sorted(p.stem for p in REPLAYS.glob("*.json"))
+
+
+@app.get("/api/replay/{name}")
+def replay(name: str) -> dict:
+    path = REPLAYS / f"{name}.json"
+    if not re.fullmatch(r"[\w.\-]+", name) or not path.exists():
+        raise HTTPException(404, "unknown replay")
+    return json.loads(path.read_text())
 
 
 @app.get("/api/scoreboard")
@@ -157,6 +175,23 @@ def scoreboard() -> dict:
         return json.loads((ROOT / pinned).read_text())
     runs = sorted((ROOT / "runs").glob("*/summary.json"), key=lambda p: p.stat().st_mtime)
     return json.loads(runs[-1].read_text()) if runs else {}
+
+
+def save_replay(req: RaceRequest, lanes: list[Lane], log: list[dict]) -> None:
+    (REPLAYS / "meshes").mkdir(parents=True, exist_ok=True)
+    for event in log:
+        key = event.get("mesh")
+        if key and key in MESHES:
+            (REPLAYS / "meshes" / f"{key}.stl").write_bytes(MESHES[key])
+    name = f"{(req.example_id or 'custom').replace(':', '_')}-{req.modality}"
+    payload = {
+        "example_id": req.example_id,
+        "modality": req.modality,
+        "spec": req.spec,
+        "lanes": [{"key": l.key, "label": l.label, "model": l.model, "effort": l.reasoning_effort, "dedicated": l.dedicated} for l in lanes],
+        "events": log,
+    }
+    (REPLAYS / f"{name}.json").write_text(json.dumps(payload))
 
 
 @app.post("/api/race")
@@ -220,6 +255,14 @@ async def race(req: RaceRequest) -> StreamingResponse:
         finally:
             await queue.put({"lane": lane.key, "type": "_end"})
 
+    started = asyncio.get_running_loop().time()
+    log: list[dict] = []
+
+    def emit(event: dict) -> str:
+        if req.record:
+            log.append({"t": round(asyncio.get_running_loop().time() - started, 3), **event})
+        return f"data: {json.dumps(event)}\n\n"
+
     async def events():
         tasks = [asyncio.create_task(target())] + [asyncio.create_task(run(l)) for l in lanes]
         remaining = len(lanes)
@@ -228,12 +271,14 @@ async def race(req: RaceRequest) -> StreamingResponse:
             if event["type"] == "_end":
                 remaining -= 1
                 continue
-            yield f"data: {json.dumps(event)}\n\n"
+            yield emit(event)
         await asyncio.gather(*tasks, return_exceptions=True)
         while not queue.empty():
             event = queue.get_nowait()
             if event["type"] != "_end":
-                yield f"data: {json.dumps(event)}\n\n"
-        yield 'data: {"type": "all_done"}\n\n'
+                yield emit(event)
+        yield emit({"type": "all_done"})
+        if req.record:
+            save_replay(req, lanes, log)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})

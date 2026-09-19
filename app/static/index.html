@@ -183,9 +183,19 @@ function pill(key, cls, text) { const el = card(key)?.querySelector('[data-k="pi
 
 async function init() {
   CONFIG = await (await fetch("/api/config")).json();
+  buildLanes(CONFIG.lanes);
+  EXAMPLES = await (await fetch("/api/examples")).json();
+  EXAMPLES.forEach((e, idx) => $("#examples").insertAdjacentHTML("beforeend",
+    `<option value="${idx}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
+  loadScoreboard();
+}
+
+function buildLanes(laneList) {
   const lanes = $("#lanes");
+  lanes.innerHTML = "";
+  for (const k in viewers) delete viewers[k];
   let i = 0;
-  for (const l of CONFIG.lanes) {
+  for (const l of laneList) {
     const el = document.createElement("div");
     el.className = "card lane" + (l.dedicated ? " ours" : "");
     el.id = "lane-" + l.key;
@@ -206,10 +216,6 @@ async function init() {
     lanes.appendChild(el);
     viewers[l.key] = new Viewer(el.querySelector('[data-k="viewer"]'), l.dedicated ? 0x4ade80 : COLORS[i++ % COLORS.length]);
   }
-  EXAMPLES = await (await fetch("/api/examples")).json();
-  EXAMPLES.forEach((e, idx) => $("#examples").insertAdjacentHTML("beforeend",
-    `<option value="${idx}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
-  loadScoreboard();
 }
 
 let currentExample = null;
@@ -351,7 +357,28 @@ async function loadScoreboard() {
     <th>Mean IoU</th><th>Multi-part correct</th><th>Latency p50 / p95 s</th><th>$ / 1K parts</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+async function playReplay(name, instant) {
+  const rp = await (await fetch(`/api/replay/${encodeURIComponent(name)}`)).json();
+  CONFIG = { ...CONFIG, lanes: rp.lanes };
+  buildLanes(rp.lanes);
+  const state = {};
+  for (const l of CONFIG.lanes) state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
+  const ex = EXAMPLES.find((e) => e.id === rp.example_id);
+  if (ex) { currentExample = ex; $("#spec").value = ex.spec; }
+  $("#modality").value = rp.modality;
+  showInput();
+  $("#note").textContent = `Replay of a recorded race (${rp.modality === "image" ? "drawing sheet" : "written spec"}).`;
+  const t0 = performance.now();
+  for (const ev of rp.events) {
+    if (!instant) { const wait = ev.t * 1000 - (performance.now() - t0); if (wait > 0) await new Promise((r) => setTimeout(r, wait)); }
+    if (ev.lane && state[ev.lane] && (ev.type === "generated" || ev.type === "graded")) setv(ev.lane, "e2e", ev.t.toFixed(1));
+    await handle(ev, state);
+  }
+}
+
 init().then(() => {
+  const params = new URLSearchParams(location.search);
+  if (params.get("replay")) { playReplay(params.get("replay"), params.get("instant") === "1"); return; }
   const auto = new URLSearchParams(location.search).get("autorun");
   const mode = new URLSearchParams(location.search).get("mode");
   if (mode) { $("#modality").value = mode; }
