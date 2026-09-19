@@ -70,17 +70,19 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 
 Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboard.json), charts in `docs/`):
 
-| Model | Correct overall [95% CI] | Simple (≤ 6 faces) | Medium (7–12) | Complex (≥ 13) | $ / 1K parts | Latency p50 |
-|---|---|---|---|---|---|---|
-| **Understudy-CAD 4B (ours)** | _after training_ | | | | | |
-| GLM-5.3 Flash (high) | 66.2% [62–70] | 85.7% | 37.0% | 18.6% | $1.00 | 3.7 s |
-| Kimi K3 (high) | 61.8% [58–66] | 81.4% | 30.3% | 18.6% | $36.82 | 10.4 s |
-| Untuned Qwen3-VL-4B | 14.7% (all 500) | | | | | |
+| Model | Correct overall [95% CI] | Simple (≤ 6 faces) | Medium (7–12) | Complex (≥ 13) | Multi-part | $ / 1K parts | Latency p50 |
+|---|---|---|---|---|---|---|---|
+| **Understudy-CAD 4B (ours)** | **70.4% [66–74]** | **90.3%** | **39.5%** | **25.4%** | **46.5%** | _serving run pending_ | _pending_ |
+| GLM-5.3 Flash (high) | 66.2% [62–70] | 85.9% | 37.0% | 18.6% | 39.5% | $1.00 | 3.7 s |
+| Kimi K3 (high) | 61.8% [58–66] | 81.5% | 30.3% | 18.6% | 39.5% | $36.82 | 10.4 s |
+| Untuned Qwen3-VL-4B | 14.7% [11–18] | 19.4% | 8.4% | 1.7% | 16.3% | | |
+
+![results by complexity](docs/results_by_tier.png)
 
 All 500 held-out parts (322 simple, 119 medium, 59 complex; 43 multi-part).
 
-**Learning curve** (greedy, the frontier's 200 parts): 13% untuned → 61% at step 200 → **68% at step 1000**, already past
-GLM-5.3 Flash (65%) and Kimi K3 (61%); on medium/complex parts 42% vs 32% / 28%.
+**Learning curve** (greedy, the frontier's 200 parts): 13% untuned → 61% at step 200 → 68% at step 1000 → **73.5% after
+one epoch**, vs GLM-5.3 Flash 65% and Kimi K3 61%; on medium/complex parts **41.5%** vs 32% / 28%.
 
 ![learning curve](docs/learning_curve.png)
 

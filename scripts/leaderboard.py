@@ -126,8 +126,9 @@ def main() -> None:
     for e in board:
         rows = list(groups[(e["modality"], e["lane"], e["best_of"])]["rows"].values())
         cost = "–" if e["cost_per_1k_usd"] is None else f"${e['cost_per_1k_usd']:.2f}"
+        lat = "–" if e["latency_p50"] is None else f"{e['latency_p50']:.1f}"
         print(f"| {e['modality']} | {e['label']} | {e['best_of']} | " + " | ".join(cell([r for r in rows if f(r)]) for f in TIERS.values())
-              + f" | {e['latency_p50']:.1f} | {cost} |")
+              + f" | {lat} | {cost} |")
     print("\nRuns: " + ", ".join(sorted({run for e in board for run in e["runs"]})))
     if LEFT_OUT:
         print("Left out, API returned no answer: " + ", ".join(f"{k} {v}" for k, v in sorted(LEFT_OUT.items())))
