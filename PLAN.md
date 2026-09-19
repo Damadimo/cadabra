@@ -48,6 +48,16 @@ Three things only you can unblock (everything else is built, dry-run tested and 
 | Optional | base model lane: `baseten model push --dir deploy/vlm_base`, set `BASE_MODEL_URL`, rerun step 5 with `--lanes base-4b` | 20 min |
 | Optional | text fallback: `cd training && baseten train push --config config.py` (~40 min), deploy with `baseten train checkpoint deploy` | 1 h |
 
+## Fallbacks
+
+| If | Then |
+|---|---|
+| Training stops early / `merged` missing | `./scripts/deploy_vlm.sh <job_id> H100_40GB checkpoint-<N>` (base + LoRA) |
+| The H100 is ours for a fixed window | set `TIME_BUDGET_H` in `training/vlm/config_vlm.py`: stops, saves and merges in time |
+| Deploys stay blocked (no payment method) | `./scripts/serve_local.sh <job_id>` serves the trained weights on this Mac (MLX, OpenAI API on :8810); benchmark with `--only 20260919-051617_sota-img`, say "served on a laptop" |
+| Model APIs stay blocked (402) | frontier numbers stand on the 200-part run; race UI plays recorded replays (`?replay=`) |
+| GPU time left after SFT + deploy + benchmark | optional RL stage: `training/vlm/config_grpo_vlm.py` (see training/vlm/README.md) |
+
 ## Questions for the Baseten booth
 
 - H100 access for training (how many, how long)? Do training and deployments draw on our credits?
