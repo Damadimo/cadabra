@@ -22,6 +22,7 @@ def _worker_main(conn, module_name: str) -> None:
 
     os.chdir(tempfile.mkdtemp(prefix="cadworker-"))  # any stray file write lands here, not in the repo
     geometry = importlib.import_module(module_name)
+    verify = None
 
     conn.send("ready")
     while True:
@@ -29,7 +30,12 @@ def _worker_main(conn, module_name: str) -> None:
         if task is None:
             break
         try:
-            result = geometry.evaluate(**task)
+            if task.pop("_fn", "evaluate") == "render_score":
+                if verify is None:
+                    verify = importlib.import_module(module_name.rsplit(".", 1)[0] + ".verify")
+                result = verify.render_score(**task)
+            else:
+                result = geometry.evaluate(**task)
         except Exception as e:  # noqa: BLE001
             result = {"runs": False, "error": f"worker error: {type(e).__name__}: {e}"}
         conn.send(result)

@@ -29,7 +29,7 @@ from understudy.cad.render import image_path
 from understudy.cad.pool import CadPool
 from understudy.config import ROOT, Lane
 from understudy.data import read_jsonl
-from understudy.llm import stream_chat
+from understudy.llm import complete, stream_chat
 
 STATIC = Path(__file__).parent / "static"
 DATA = ROOT / "data" / "cad"
@@ -213,8 +213,39 @@ async def race(req: RaceRequest) -> StreamingResponse:
             if res.get("runs"):
                 await queue.put({"type": "target", "mesh": store(res["mesh_stl"]), "stats": res["stats"]})
 
+    best_of = int(os.getenv("OURS_BEST_OF", "8"))
+
+    async def run_best_of(lane: Lane, msgs: list[dict]) -> None:
+        """Our lane on a drawing sheet: sample N programs, keep the one whose render matches the sheet best."""
+        await queue.put({"lane": lane.key, "type": "status", "text": f"sampling {best_of} programs…"})
+        calls = await asyncio.gather(*(complete(lane, msgs, max_tokens=2048, temperature=0.7, session_id=f"race-{session}-{lane.key}") for _ in range(best_of)))
+        ok = [c for c in calls if not c.error]
+        first = min(ok, key=lambda c: c.ttft_s or 1e9) if ok else calls[0]
+        metrics = {**first.metrics(), "e2e_s": max(c.e2e_s for c in calls), "output_tokens": sum(c.output_tokens for c in calls),
+                   "cost_usd": sum(c.cost_usd or 0.0 for c in calls)}
+        await queue.put({"lane": lane.key, "type": "generated", "metrics": metrics, "error": None if ok else calls[0].error})
+        codes = [prompts.extract_code(c.content) for c in ok]
+        codes = [c for c in codes if c]
+        if not codes:
+            await queue.put({"lane": lane.key, "type": "graded", "runs": False, "error": "no candidate produced code"})
+            return
+        await queue.put({"lane": lane.key, "type": "status", "text": f"checking {len(codes)} candidates against the drawing…"})
+        sheet_file = str(image_path(req.example_id, IMAGES))
+        checks = await asyncio.gather(*(asyncio.to_thread(POOL.run, _fn="render_score", code=c, sheet_path=sheet_file) for c in codes))
+        pick = max(range(len(codes)), key=lambda k: checks[k].get("render_score") or 0.0)
+        res = await asyncio.to_thread(POOL.run, code=codes[pick], gold_code=gold, want_mesh=True, want_chamfer=bool(gold))
+        payload = {"lane": lane.key, "type": "graded", "code": codes[pick], "runs": bool(res.get("runs")), "error": res.get("error"),
+                   "iou": res.get("iou"), "iou_aligned": res.get("iou_aligned"), "chamfer": res.get("chamfer"), "stats": res.get("stats"),
+                   "render_score": checks[pick].get("render_score"), "candidates": len(codes)}
+        if res.get("runs"):
+            payload["mesh"] = store(res.get("aligned_mesh_stl") or res["mesh_stl"])
+        await queue.put(payload)
+
     async def run(lane: Lane) -> None:
         try:
+            if image_mode and lane.dedicated and best_of > 1:
+                await run_best_of(lane, prompts.image_messages(sheet_url, SHEETS[req.example_id]["bbox"], []))
+                return
             if image_mode:
                 msgs = prompts.image_messages(sheet_url, SHEETS[req.example_id]["bbox"], [] if lane.dedicated else image_shots())
             else:

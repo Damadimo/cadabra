@@ -307,6 +307,8 @@ async function handle(ev, state) {
     s.code += ev.text;
     setv(ev.lane, "status", "writing code…");
     setv(ev.lane, "code", s.code);
+  } else if (ev.type === "status") {
+    setv(ev.lane, "status", ev.text);
   } else if (ev.type === "restart") {
     s.code = ""; s.reasoning = 0;
     setv(ev.lane, "status", "connection dropped, retrying…");
@@ -331,10 +333,10 @@ async function handle(ev, state) {
       setv(ev.lane, "status", "custom spec: no reference to score against");
     } else if (ev.iou_aligned >= 0.9) {
       pill(ev.lane, "ok", `✓ matches target · IoU ${ev.iou_aligned.toFixed(3)}`);
-      setv(ev.lane, "status", "correct part");
+      setv(ev.lane, "status", ev.candidates ? `correct part · picked from ${ev.candidates} by render-check (${(ev.render_score ?? 0).toFixed(3)})` : "correct part");
     } else {
       pill(ev.lane, "no", `✗ wrong part · IoU ${ev.iou_aligned.toFixed(3)}`);
-      setv(ev.lane, "status", "builds, but not the specified part");
+      setv(ev.lane, "status", ev.candidates ? `best of ${ev.candidates} by render-check still wrong` : "builds, but not the specified part");
     }
   } else if (ev.type === "error") {
     s.done = true;

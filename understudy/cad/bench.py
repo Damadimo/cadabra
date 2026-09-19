@@ -67,7 +67,41 @@ def image_inputs(rec: dict, index: dict) -> tuple[str, list[float]]:
     return prompts.data_url(image_path(rec["id"], IMAGES)), index[rec["id"]]["bbox"]
 
 
-async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries: int, max_tokens: int, slot: int, index: dict | None = None) -> dict:
+async def best_of_n(lane: Lane, rec: dict, pool: CadPool, msgs: list[dict], n: int, max_tokens: int, temperature: float, slot: int) -> dict:
+    """Sample n programs, keep the one whose render best matches the INPUT sheet (render-and-compare), grade that one.
+    Also grades every candidate against the answer key, only to report how often the best was available (oracle@n)."""
+    from .render import image_path
+
+    calls = await asyncio.gather(
+        *(complete(lane, msgs, max_tokens=max_tokens, temperature=temperature, session_id=f"cad-{lane.key}-{slot % 4}", restart_on_disconnect=True) for _ in range(n)),
+        return_exceptions=True,
+    )
+    calls = [c for c in calls if not isinstance(c, BaseException)]
+    codes = [prompts.extract_code(c.content) if not c.error else None for c in calls]
+    sheet = str(image_path(rec["id"], IMAGES))
+    live = [(i, code) for i, code in enumerate(codes) if code]
+    checks = await asyncio.gather(*(asyncio.to_thread(pool.run, _fn="render_score", code=code, sheet_path=sheet) for _, code in live))
+    grades = await asyncio.gather(*(asyncio.to_thread(pool.run, code=code, gold_code=rec["gold_code"], want_chamfer=True) for _, code in live))
+    if not live:
+        return {"graded": {"runs": False, "error": "no candidate produced code"}, "code": None, "calls": calls, "extra": {"candidates": len(calls)}}
+    ranked = sorted(range(len(live)), key=lambda k: (-(checks[k].get("render_score") or 0.0), k))
+    pick = ranked[0]
+    ious = [(g.get("iou_aligned") or 0.0) if g.get("runs") else 0.0 for g in grades]
+    extra = {
+        "candidates": len(calls),
+        "render_score": checks[pick].get("render_score"),
+        "oracle_iou": max(ious),
+        "candidates_correct": sum(i >= SUCCESS_IOU for i in ious),
+    }
+    return {"graded": grades[pick], "code": live[pick][1], "calls": calls, "extra": extra}
+
+
+async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries: int, max_tokens: int, slot: int, index: dict | None = None,
+                best_of: int = 1, temperature: float = 0.7) -> dict:
+    if best_of > 1 and index is not None:
+        image, bbox = image_inputs(rec, index)
+        out = await best_of_n(lane, rec, pool, prompts.image_messages(image, bbox, shots), best_of, max_tokens, temperature, slot)
+        return row_for(lane, rec, out["graded"], out["code"], out["calls"], 1, out["extra"])
     if index is not None:
         image, bbox = image_inputs(rec, index)
         msgs = prompts.image_messages(image, bbox, shots)
@@ -105,9 +139,14 @@ async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries
             {"role": "assistant", "content": r.content},
             {"role": "user", "content": prompts.REPAIR.format(error=graded.get("error"))},
         ]
+    return row_for(lane, rec, graded, code, calls, attempts)
+
+
+def row_for(lane: Lane, rec: dict, graded: dict, code: str | None, calls: list, attempts: int, extra: dict | None = None) -> dict:
     costs = [c.cost_usd for c in calls]
     iou_a = graded.get("iou_aligned") or 0.0
     return {
+        **(extra or {}),
         "id": rec["id"],
         "lane": lane.key,
         "model": lane.model,
@@ -121,7 +160,8 @@ async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries
         "error": graded.get("error"),
         "attempts": attempts,
         "ttft_s": calls[0].ttft_s if calls else None,
-        "e2e_s": sum(c.e2e_s for c in calls),
+        # sequential attempts add up; best-of-n samples run in parallel, so the slowest one is the latency
+        "e2e_s": (max(c.e2e_s for c in calls) if extra else sum(c.e2e_s for c in calls)) if calls else 0.0,
         "output_tokens": sum(c.output_tokens for c in calls),
         "reasoning_chars": sum(len(c.reasoning) for c in calls),
         "cost_usd": None if any(c is None for c in costs) else sum(costs),
@@ -164,6 +204,7 @@ def summarize(rows: list[dict], lane: Lane, wall_s: float, concurrency: int) -> 
         "ttft_p50": pct((r["ttft_s"] for r in rows), 50),
         "output_tokens_mean": mean(r["output_tokens"] for r in rows),
         "attempts_mean": mean(r["attempts"] for r in rows),
+        "oracle_success": mean(1.0 if (r.get("oracle_iou") or 0) >= SUCCESS_IOU else 0.0 for r in rows) if rows and "oracle_iou" in rows[0] else None,
         "cost_per_1k_usd": cost_1k,
         "cost_note": cost_note,
         "wall_s": wall_s,
@@ -226,7 +267,8 @@ async def run(args) -> None:
                 nonlocal done
                 async with sem:
                     lane_shots = [] if (lane.dedicated and not args.shots_for_ours) else shots
-                    row = await solve(lane, rec, pool, lane_shots, args.retries, args.max_tokens if not lane.dedicated else 2048, i, index)
+                    row = await solve(lane, rec, pool, lane_shots, args.retries, args.max_tokens if not lane.dedicated else 2048, i, index,
+                                      best_of=args.best_of, temperature=args.temperature)
                 done += 1
                 if done % 10 == 0 or done == len(records):
                     print(f"  {lane.key}: {done}/{len(records)}", flush=True)
@@ -245,6 +287,7 @@ async def run(args) -> None:
         "shots": args.shots,
         "retries": args.retries,
         "modality": args.modality,
+        "best_of": args.best_of,
         "created": created.isoformat(timespec="seconds"),
     }
     write_jsonl(out_dir / "results.jsonl", rows)
@@ -267,6 +310,8 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--modality", choices=["text", "image"], default="text", help="text specs, or rendered drawing sheets")
+    ap.add_argument("--best-of", type=int, default=1, help="image mode: sample N programs, keep the best render-and-compare match")
+    ap.add_argument("--temperature", type=float, default=0.7, help="sampling temperature for --best-of")
     ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
     ap.add_argument("--min-faces", type=int, default=0, help="only parts with at least this many faces")
     ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
