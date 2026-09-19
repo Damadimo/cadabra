@@ -17,14 +17,16 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
 - Samples several programs, renders each one the way the input drawing was rendered, and keeps the best match
   (render-and-compare: it checks its own work against the drawing, never against an answer key).
 - A live 3D race: our model vs Kimi K3 and GLM-5.3 Flash on held-out parts, each prediction overlaid on the target,
-  with time, tokens and $ per part.
+  with time, tokens and $ per part. The scoreboard underneath has every number with 95% CIs, by part complexity.
 
 ## How we built it (on Baseten)
-- **Model APIs** for every frontier baseline (Kimi K3, GLM-5.3 Flash, GLM-5.3), all at high reasoning effort, all given
-  two worked examples. Our model gets none.
-- **Training Jobs on an H100**: LoRA SFT of Qwen3-VL-4B-Instruct on [~17k] rendered drawing sheets from CAD-Coder
-  (Apache-2.0), adapters on the language model only, loss on the code only.
-- **Deployment**: merged weights served by vLLM on Baseten straight from the training checkpoint (`bt://` weights).
+- **Model APIs** for the frontier baselines (Kimi K3 and GLM-5.3 Flash, both vision models), at high reasoning effort
+  and with two worked examples each. Our model gets none.
+- **Training Jobs on an H100**: LoRA SFT (rank 64) of Qwen3-VL-4B-Instruct on [~30k] rendered drawing sheets from
+  CAD-Coder (Apache-2.0), weighted toward the medium and complex parts where frontier models fail. Adapters on the
+  language model only, loss on the code only, 1,024 visual tokens per sheet.
+- **Deployment**: merged weights served by vLLM on Baseten straight from the training checkpoint (`bt://` weights);
+  a second config serves base + LoRA from any intermediate checkpoint, which also gives us the untuned baseline.
 - **Grader**: sandboxed CadQuery (import allowlist, no file IO, per-task process timeout) and exact OpenCascade
   boolean IoU against the reference solid, aligned over the 24 axis rotations. Success = code runs and IoU ≥ 0.9.
 - **Baseten Switch** routed our Claude Code sessions to open models while we built.
@@ -37,7 +39,8 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
 | GLM-5.3 Flash (high) | 65.0% [58–72] | 37.0% | 21.1% | $1.02 | 6.0 s |
 | Untuned Qwen3-VL-4B | [..%] | [..%] | [..%] | | |
 
-200 held-out parts for the frontier models, bootstrap 95% CIs. Our model was run on the same parts [and all 500].
+[200/500] held-out parts, bootstrap 95% CIs. Rows where an API returned no answer (e.g. 402s) are left out and listed,
+never scored as wrong answers.
 
 ## Challenges
 - **The public data was wrong in places.** We ran all ~16K reference programs: 14% of the official test split's
@@ -46,8 +49,9 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
   dataset's inconsistent placement.
 - **Our first idea failed its own test.** We planned text-to-CAD, piloted the frontier models first, and found them at
   88–95%. We switched to drawing sheets before spending any GPU time.
-- Rate limits (15 requests/min per model) and multi-minute reasoning calls meant building a resilient, resumable
-  benchmark harness.
+- Rate limits (15 requests/min per model), multi-minute reasoning calls, and a credit limit that silently turned into
+  402 errors mid-benchmark. We caught 32 failed API calls that had been scored as wrong answers, so now any row the API
+  never answered is left out and listed, and a run stops at the first account-level error.
 
 ## Accomplishments
 - A verifier that needs no answer key: render-and-compare separates correct from wrong frontier answers with AUC 0.96
