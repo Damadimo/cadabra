@@ -1,6 +1,7 @@
-"""Pre-flight check (costs well under a cent): the key works, pinned slugs are live, every lane answers.
+"""Pre-flight check (costs well under a cent): key works, benchmark slugs are live, each lane builds one part.
 
   uv run python scripts/smoke.py
+  UNDERSTUDY_BASE_URL=... UNDERSTUDY_MODEL=checkpoint-... uv run python scripts/smoke.py   # also checks our deployment
 """
 
 from __future__ import annotations
@@ -9,39 +10,48 @@ import asyncio
 
 import httpx
 
-from understudy.config import ADJUDICATOR_MODEL, BULK_MODEL, DEPRECATED, MODEL_API_BASE_URL, TEACHER_MODEL, api_key, lanes
+from understudy.cad import prompts
+from understudy.cad.bench import resolve_lanes
+from understudy.cad.pool import CadPool
+from understudy.config import DEPRECATED, MODEL_API_BASE_URL, ROOT, api_key, lanes
+from understudy.data import read_jsonl
 from understudy.llm import complete
+
+BENCH_SLUGS = ["moonshotai/Kimi-K3", "zai-org/GLM-5.3"]
 
 
 async def main() -> None:
     headers = {"Authorization": f"Bearer {api_key()}"}
-    all_lanes = lanes()
     async with httpx.AsyncClient(timeout=30) as http:
         r = await http.get(f"{MODEL_API_BASE_URL}/models", headers=headers)
         if r.status_code != 200:
             raise SystemExit(f"GET {MODEL_API_BASE_URL}/models -> {r.status_code}: {r.text[:300]}")
         live = {m["id"] for m in r.json().get("data", [])}
-        pinned = {TEACHER_MODEL, ADJUDICATOR_MODEL, BULK_MODEL} | {l.model for l in all_lanes.values() if not l.dedicated}
         print(f"Live Model API catalog: {len(live)} models")
-        for slug in sorted(pinned):
-            print(f"  {'ok     ' if slug in live else 'MISSING'}  {slug}")
-        for slug in sorted(pinned & DEPRECATED):
-            print(f"  WARNING  {slug} stops working 2026-09-25 17:00 PT")
-        dedicated = next((l for l in all_lanes.values() if l.dedicated), None)
-        if dedicated:
-            rr = await http.get(f"{dedicated.base_url}/models", headers=headers)
+        for slug in BENCH_SLUGS:
+            print(f"  {'ok     ' if slug in live else 'MISSING'}  {slug}{'  (deprecated Sep 25!)' if slug in DEPRECATED else ''}")
+        limit = r.headers.get("x-ratelimit-limit-requests")
+        if limit:
+            print(f"  rate limit: {limit} requests/min per model (15 = unverified account; verify for 120)")
+        ours = lanes().get("specialist")
+        if ours:
+            rr = await http.get(f"{ours.base_url}/models", headers=headers)
             served = [m["id"] for m in rr.json().get("data", [])] if rr.status_code == 200 else f"HTTP {rr.status_code}"
-            print(f"Dedicated deployment serves: {served}  (set UNDERSTUDY_MODEL to the checkpoint name)")
+            print(f"Our deployment serves: {served}  (UNDERSTUDY_MODEL={ours.model})")
 
-    print("\nOne tiny call per lane:")
-    for lane in all_lanes.values():
-        res = await complete(lane, [{"role": "user", "content": "Reply with exactly one word: ready"}], max_tokens=512)
-        if res.error:
-            print(f"  {lane.key:14} ERROR {res.error}")
-            continue
-        ttft = f"{res.ttft_s:.2f}s" if res.ttft_s is not None else "–"
-        cost = f"${res.cost_usd:.6f}" if res.cost_usd is not None else "–"
-        print(f"  {lane.key:14} ttft={ttft} e2e={res.e2e_s:.2f}s out_tokens={res.output_tokens} cost={cost} -> {res.content.strip()[:40]!r}")
+    spec = read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")[0]
+    todo = [l for l in (lanes().get("specialist"),) if l] + resolve_lanes(",".join(f"{s}:low" for s in BENCH_SLUGS))
+    print("\nOne held-out spec per lane:")
+    with CadPool(workers=2) as pool:
+        for lane in todo:
+            res = await complete(lane, prompts.messages(spec["spec"]), max_tokens=8192, temperature=0.0 if lane.dedicated else None)
+            if res.error:
+                print(f"  {lane.key:18} API ERROR {res.error}")
+                continue
+            code = prompts.extract_code(res.content)
+            graded = pool.run(code=code, gold_code=spec["gold_code"], want_chamfer=False) if code else {"runs": False, "error": "no code"}
+            verdict = f"IoU {graded['iou_aligned']:.3f}" if graded.get("runs") else f"failed: {graded.get('error')}"
+            print(f"  {lane.key:18} {res.e2e_s:5.1f}s  {res.output_tokens:5d} tokens  {verdict}")
 
 
 if __name__ == "__main__":

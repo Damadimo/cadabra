@@ -60,10 +60,6 @@ DEPRECATED = {
     "deepseek-ai/DeepSeek-V4-Pro",
 }
 
-TEACHER_MODEL = os.getenv("TEACHER_MODEL", "zai-org/GLM-5.3")
-ADJUDICATOR_MODEL = os.getenv("ADJUDICATOR_MODEL", "moonshotai/Kimi-K3")
-BULK_MODEL = os.getenv("BULK_MODEL", "zai-org/GLM-5.3-Flash")
-
 # Requests/min per model we allow ourselves. Unverified accounts get 15, verified 120.
 RPM = int(os.getenv("BASETEN_RPM", "100"))
 
@@ -77,7 +73,7 @@ class Lane:
     model: str  # Model API slug, or the served model name on a dedicated deployment
     base_url: str = MODEL_API_BASE_URL
     reasoning_effort: str | None = None
-    json_schema: bool = True  # send response_format=json_schema
+    json_schema: bool = False  # send response_format=json_schema when a caller passes a schema
     gpu_hourly_usd: float | None = None  # set for dedicated deployments (billed per GPU-hour)
 
     @property
@@ -85,39 +81,30 @@ class Lane:
         return self.gpu_hourly_usd is not None
 
 
+PRETTY = {
+    "moonshotai/Kimi-K3": "Kimi K3",
+    "zai-org/GLM-5.3": "GLM-5.3",
+    "zai-org/GLM-5.3-Flash": "GLM-5.3 Flash",
+    "deepseek-ai/DeepSeek-V4-Pro-0813": "DeepSeek V4 Pro",
+    "deepseek-ai/DeepSeek-V4.1-Flash": "DeepSeek V4.1 Flash",
+    "openai/gpt-oss-120b": "gpt-oss-120b",
+}
+
+
 def lanes() -> dict[str, Lane]:
+    """Named lanes. Any Model API slug also works inline as slug:effort (see cad.bench.resolve_lanes)."""
     out = {
-        "kimi-k3": Lane("kimi-k3", "Kimi K3", "moonshotai/Kimi-K3", reasoning_effort=os.getenv("K3_EFFORT", "low")),
-        "glm-5.3": Lane("glm-5.3", "GLM-5.3", "zai-org/GLM-5.3", reasoning_effort=os.getenv("GLM_EFFORT", "low")),
-        "glm-5.3-flash": Lane(
-            "glm-5.3-flash", "GLM-5.3 Flash", "zai-org/GLM-5.3-Flash", reasoning_effort=os.getenv("FLASH_EFFORT", "low")
-        ),
+        "kimi-k3": Lane("kimi-k3", "Kimi K3", "moonshotai/Kimi-K3", reasoning_effort=os.getenv("K3_EFFORT", "high")),
+        "glm-5.3": Lane("glm-5.3", "GLM-5.3", "zai-org/GLM-5.3", reasoning_effort=os.getenv("GLM_EFFORT", "high")),
     }
     url = os.getenv("UNDERSTUDY_BASE_URL")
     if url:
         gpu = float(os.getenv("UNDERSTUDY_GPU_HOURLY", "6.50"))
-        schema = os.getenv("UNDERSTUDY_JSON_SCHEMA", "1") == "1"
         out["specialist"] = Lane(
-            "specialist",
-            "Understudy 4B (ours)",
-            os.getenv("UNDERSTUDY_MODEL", "checkpoint-final"),
-            base_url=url,
-            json_schema=schema,
-            gpu_hourly_usd=gpu,
+            "specialist", "Understudy-CAD 4B (ours)", os.getenv("UNDERSTUDY_MODEL", "checkpoint-final"), base_url=url, gpu_hourly_usd=gpu
         )
         # v0 baseline: the untuned base model on the same vLLM deployment (check the deployment's /v1/models)
         out["base-4b"] = Lane(
-            "base-4b",
-            "Qwen3-4B (untuned)",
-            os.getenv("UNDERSTUDY_BASE_MODEL", "Qwen/Qwen3-4B"),
-            base_url=url,
-            json_schema=schema,
-            gpu_hourly_usd=gpu,
+            "base-4b", "Qwen3-4B-Instruct (untuned)", os.getenv("UNDERSTUDY_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507"), base_url=url, gpu_hourly_usd=gpu
         )
     return out
-
-
-def race_lanes() -> list[Lane]:
-    wanted = os.getenv("RACE_LANES", "specialist,kimi-k3,glm-5.3").split(",")
-    available = lanes()
-    return [available[k.strip()] for k in wanted if k.strip() in available]

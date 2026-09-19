@@ -1,0 +1,71 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 40,
+  "shots": 2,
+  "retries": 0,
+  "created": "2026-09-19T04:28:46",
+  "lanes": [
+    {
+      "lane": "kimi-k3@high",
+      "model": "moonshotai/Kimi-K3",
+      "reasoning_effort": "high",
+      "n": 40,
+      "success": 0.875,
+      "success_ci95": [
+        0.775,
+        0.975
+      ],
+      "success_iou95": 0.875,
+      "run_rate": 0.95,
+      "mean_iou_aligned": 0.8756455175226081,
+      "median_chamfer": 0.0,
+      "single_part": {
+        "n": 37,
+        "success": 0.8648648648648649
+      },
+      "multi_part": {
+        "n": 3,
+        "success": 1.0
+      },
+      "latency_p50": 3.7616869579069316,
+      "latency_p95": 34.76606635433854,
+      "ttft_p50": 0.7343426875304431,
+      "output_tokens_mean": 754.825,
+      "attempts_mean": 1,
+      "cost_per_1k_usd": 17.932846153846153,
+      "cost_note": "list price per token",
+      "wall_s": 804.9348445001524
+    },
+    {
+      "lane": "glm-5.3@high",
+      "model": "zai-org/GLM-5.3",
+      "reasoning_effort": "high",
+      "n": 40,
+      "success": 0.6,
+      "success_ci95": [
+        0.45,
+        0.75
+      ],
+      "success_iou95": 0.6,
+      "run_rate": 0.625,
+      "mean_iou_aligned": 0.6110134204032369,
+      "median_chamfer": 0.0,
+      "single_part": {
+        "n": 37,
+        "success": 0.5945945945945946
+      },
+      "multi_part": {
+        "n": 3,
+        "success": 0.6666666666666666
+      },
+      "latency_p50": 16.60376950004138,
+      "latency_p95": 621.295731325238,
+      "ttft_p50": 2.739614250487648,
+      "output_tokens_mean": 303.175,
+      "attempts_mean": 1,
+      "cost_per_1k_usd": 2.868232,
+      "cost_note": "list price per token",
+      "wall_s": 1073.9042619999964
+    }
+  ]
+}

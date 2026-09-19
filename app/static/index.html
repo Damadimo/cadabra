@@ -3,29 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Understudy</title>
+<title>Understudy-CAD</title>
 <style>
   :root {
     --bg: #0b0d10; --panel: #12161b; --inset: #0e1216; --line: #222a33;
     --text: #e6edf3; --muted: #8b98a5; --ours: #4ade80; --ours-line: #166534;
-    --bad: #f87171; --bad-line: #7f1d1d; --accent: #1f6feb;
+    --bad: #f87171; --bad-line: #7f1d1d; --warn: #fbbf24; --accent: #1f6feb;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 16px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header { padding: 14px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
   h1 { margin: 0; font-size: 20px; }
   .muted { color: var(--muted); }
   main { padding: 16px 24px 40px; display: grid; gap: 16px; }
+  .top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
+  @media (max-width: 900px) { .top { grid-template-columns: 1fr; } }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  textarea, input, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  textarea, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
   textarea { width: 100%; min-height: 150px; padding: 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
-  select, input, button { padding: 8px 12px; }
-  input { min-width: 260px; }
+  select, button { padding: 8px 12px; }
+  select { max-width: 100%; }
   button { cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
   button:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  .card h3 { margin: 0 0 8px; font-size: 14px; }
+  .viewer { height: 240px; border-radius: 8px; background: radial-gradient(circle at 50% 40%, #1a2230, #0b0e12); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .viewer canvas { display: block; width: 100%; height: 100%; }
+  .viewer .hint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; color: var(--muted); pointer-events: none; }
   .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-  .lane { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .lane { display: grid; gap: 8px; align-content: start; }
   .lane.ours { border-color: var(--ours-line); }
   .lane h2 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
   .badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
@@ -33,123 +40,212 @@
   .slug { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
   .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .m { background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-  .m b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .m b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
   .m span { color: var(--muted); font-size: 11px; }
   .status { color: var(--muted); font-size: 12px; min-height: 18px; }
-  pre { margin: 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; min-height: 60px; max-height: 280px; overflow: auto;
-        font: 12px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .checks { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chk { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .chk.ok { color: var(--ours); border-color: var(--ours-line); }
-  .chk.no { color: var(--bad); border-color: var(--bad-line); }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
-  .card h3 { margin: 0 0 8px; font-size: 14px; }
+  .pill { display: inline-block; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--ours); border-color: var(--ours-line); }
+  .pill.no { color: var(--bad); border-color: var(--bad-line); }
+  .pill.warn { color: var(--warn); border-color: #78350f; }
+  details pre { margin: 6px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 260px; overflow: auto; font: 11.5px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--muted); font-weight: 500; }
-  code { font: 12px ui-monospace, Menlo, monospace; }
+  .scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Understudy</h1>
-  <span class="muted">A 4B model trained on a Baseten H100, racing frontier models on one messy job</span>
-  <span class="muted" id="task"></span>
+  <h1>Understudy-CAD</h1>
+  <span class="muted">A 4B model post-trained on a Baseten H100, racing frontier models from spec to solid. The geometry decides who wins.</span>
 </header>
 <main>
-  <section>
-    <div class="row" style="margin-bottom:8px">
-      <select id="examples"><option value="">Load an example…</option></select>
-      <button class="primary" id="go">Race ▶</button>
-      <span class="muted">Edit the input: delete a field, plant a contradiction, then race again.</span>
+  <section class="top">
+    <div class="card">
+      <div class="row" style="margin-bottom:8px">
+        <select id="examples"><option value="">Held-out spec…</option></select>
+        <button class="primary" id="go">Race ▶</button>
+        <span class="muted" id="note">Pick a held-out spec (never seen in training) or write your own.</span>
+      </div>
+      <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
     </div>
-    <textarea id="text" placeholder="Paste a document or load an example"></textarea>
+    <div class="card">
+      <h3>Target part <span class="muted" id="tstats"></span></h3>
+      <div class="viewer" id="target"><span class="hint">reference solid</span></div>
+    </div>
   </section>
 
   <section class="lanes" id="lanes"></section>
 
-  <section class="card">
-    <h3>Held-out scoreboard <span class="muted" id="sbmeta"></span></h3>
-    <div id="scoreboard" class="muted">No eval run yet. Run <code>uv run python -m understudy.evaluate</code>.</div>
-  </section>
-
-  <section class="card">
-    <h3>Correct a field → next training round</h3>
-    <div class="row">
-      <select id="clane"></select>
-      <select id="cfield"></select>
-      <input id="cvalue" placeholder='correct value as JSON, e.g. "TX", 1250000, null'>
-      <button id="csend">Add correction</button>
-      <span class="muted" id="cmsg"></span>
-    </div>
+  <section class="card scroll">
+    <h3>Held-out benchmark <span class="muted" id="sbmeta"></span></h3>
+    <div id="scoreboard" class="muted">No benchmark run yet: <code>python -m understudy.cad.bench</code></div>
   </section>
 </main>
 
-<script>
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const num = (x, d = 2) => (x == null ? "–" : Number(x).toFixed(d));
-const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(5) : x.toFixed(4)));
-const pctf = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
-let CONFIG = null, EXAMPLES = [];
-const OUTPUTS = {};
+<script type="importmap">
+{ "imports": { "three": "/static/vendor/three.module.min.js", "three/addons/": "/static/vendor/addons/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
 
-function laneEl(key) { return document.getElementById("lane-" + key); }
-function setv(key, field, value) {
-  const el = laneEl(key)?.querySelector(`[data-k="${field}"]`);
-  if (el) el.textContent = value;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = (x, d = 1) => (x == null ? "–" : Number(x).toFixed(d));
+const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
+const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)));
+const loader = new STLLoader();
+
+class Viewer {
+  constructor(el, color) {
+    this.el = el;
+    this.color = color;
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    el.prepend(this.renderer.domElement);
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(35, 1, 0.001, 1000);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.autoRotate = true;
+    this.controls.autoRotateSpeed = 1.0;
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.4));
+    const key = new THREE.DirectionalLight(0xffffff, 1.8);
+    key.position.set(2, 3, 4);
+    this.scene.add(key);
+    this.group = new THREE.Group();
+    this.scene.add(this.group);
+    this.part = null;
+    this.target = null;
+    new ResizeObserver(() => this.resize()).observe(el);
+    this.resize();
+    const loop = () => { this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(loop); };
+    loop();
+  }
+  resize() {
+    const w = this.el.clientWidth || 300, h = this.el.clientHeight || 240;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+  }
+  async geometry(key) {
+    const buf = await (await fetch(`/api/mesh/${key}`)).arrayBuffer();
+    const g = loader.parse(buf);
+    g.computeVertexNormals();
+    return g;
+  }
+  drop(obj) { if (obj) { this.group.remove(obj); obj.geometry.dispose(); } }
+  async setPart(key) {
+    const g = await this.geometry(key);
+    this.drop(this.part);
+    this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: this.color, metalness: 0.15, roughness: 0.45, side: THREE.DoubleSide }));
+    this.group.add(this.part);
+    this.fit();
+  }
+  async setTarget(key, solid = false) {
+    const g = await this.geometry(key);
+    this.drop(this.target);
+    this.target = solid
+      ? new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x9aa4b2, metalness: 0.1, roughness: 0.6 }))
+      : new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.7 }));
+    this.group.add(this.target);
+    this.fit();
+  }
+  clear() { this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
+  fit() {
+    const box = new THREE.Box3().setFromObject(this.group);
+    if (box.isEmpty()) return;
+    const c = box.getCenter(new THREE.Vector3());
+    const r = box.getSize(new THREE.Vector3()).length() / 2 || 1;
+    const d = (r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2))) * 1.05;
+    this.controls.target.copy(c);
+    this.camera.position.copy(c).add(new THREE.Vector3(1, 0.75, 1.15).normalize().multiplyScalar(d));
+    this.camera.near = d / 200;
+    this.camera.far = d * 200;
+    this.camera.updateProjectionMatrix();
+  }
 }
+
+let CONFIG = null, EXAMPLES = [];
+const viewers = {};
+const targetViewer = new Viewer($("#target"), 0x9aa4b2);
+const COLORS = [0x60a5fa, 0xc084fc, 0xf472b6, 0xfbbf24];
+
+function card(key) { return document.getElementById("lane-" + key); }
+function setv(key, field, value) { const el = card(key)?.querySelector(`[data-k="${field}"]`); if (el) el.textContent = value; }
+function pill(key, cls, text) { const el = card(key)?.querySelector('[data-k="pill"]'); if (el) { el.className = "pill " + cls; el.textContent = text; } }
 
 async function init() {
   CONFIG = await (await fetch("/api/config")).json();
-  $("#task").textContent = "· task: " + CONFIG.task;
   const lanes = $("#lanes");
-  lanes.innerHTML = "";
+  let i = 0;
   for (const l of CONFIG.lanes) {
     const el = document.createElement("div");
-    el.className = "lane" + (l.dedicated ? " ours" : "");
+    el.className = "card lane" + (l.dedicated ? " ours" : "");
     el.id = "lane-" + l.key;
+    const badge = l.dedicated ? "ours · post-trained on Baseten" : `Baseten Model API${l.effort ? " · " + l.effort + " effort" : ""}`;
     el.innerHTML = `
-      <h2><span>${esc(l.label)}</span><span class="badge">${l.dedicated ? "ours · dedicated on Baseten" : "Baseten Model API"}</span></h2>
+      <h2><span>${esc(l.label)}</span><span class="badge">${esc(badge)}</span></h2>
       <div class="slug">${esc(l.model)}</div>
       <div class="meters">
-        <div class="m"><b data-k="ttft">–</b><span>TTFT s</span></div>
-        <div class="m"><b data-k="tps">–</b><span>out tok/s</span></div>
-        <div class="m"><b data-k="e2e">–</b><span>latency s</span></div>
-        <div class="m"><b data-k="cost">–</b><span>${l.dedicated ? "$/doc (GPU, c=1)" : "$/doc"}</span></div>
+        <div class="m"><b data-k="ttft">–</b><span>first token s</span></div>
+        <div class="m"><b data-k="e2e">–</b><span>total s</span></div>
+        <div class="m"><b data-k="tok">–</b><span>tokens</span></div>
+        <div class="m"><b data-k="cost">–</b><span>${l.dedicated ? "$/part (GPU)" : "$/part"}</span></div>
       </div>
       <div class="status" data-k="status">idle</div>
-      <pre data-k="out"></pre>
-      <div class="checks" data-k="checks"></div>`;
+      <div class="viewer" data-k="viewer"><span class="hint">prediction (solid) over target (edges)</span></div>
+      <div><span class="pill" data-k="pill">waiting</span></div>
+      <details><summary>code</summary><pre data-k="code"></pre></details>`;
     lanes.appendChild(el);
-    $("#clane").insertAdjacentHTML("beforeend", `<option value="${esc(l.key)}">${esc(l.label)}</option>`);
+    viewers[l.key] = new Viewer(el.querySelector('[data-k="viewer"]'), l.dedicated ? 0x4ade80 : COLORS[i++ % COLORS.length]);
   }
-  for (const f of CONFIG.fields) $("#cfield").insertAdjacentHTML("beforeend", `<option>${esc(f)}</option>`);
   EXAMPLES = await (await fetch("/api/examples")).json();
-  EXAMPLES.forEach((e, i) => $("#examples").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(e.title)}</option>`));
+  EXAMPLES.forEach((e, idx) => $("#examples").insertAdjacentHTML("beforeend",
+    `<option value="${idx}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
   loadScoreboard();
 }
 
-$("#examples").onchange = (e) => { const x = EXAMPLES[e.target.value]; if (x) $("#text").value = x.text; };
+let currentExample = null;
+$("#examples").onchange = (e) => {
+  const x = EXAMPLES[e.target.value];
+  currentExample = x || null;
+  if (x) $("#spec").value = x.spec;
+};
+$("#spec").oninput = () => {
+  if (currentExample && $("#spec").value !== currentExample.spec) {
+    currentExample = null;
+    $("#note").textContent = "Custom spec: parts are built and shown, but there is no reference to score against.";
+  }
+};
 
 $("#go").onclick = async () => {
-  const text = $("#text").value.trim();
-  if (!text) return;
+  const spec = $("#spec").value.trim();
+  if (!spec) return;
   const state = {};
+  targetViewer.clear();
+  $("#tstats").textContent = currentExample ? "loading…" : "(custom spec: no reference)";
   for (const l of CONFIG.lanes) {
-    state[l.key] = { t0: performance.now(), reasoning: 0, content: "", done: false, ttft: null };
-    for (const k of ["ttft", "tps", "e2e", "cost"]) setv(l.key, k, "–");
+    state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
+    for (const k of ["ttft", "e2e", "tok", "cost"]) setv(l.key, k, "–");
     setv(l.key, "status", "waiting for first token…");
-    setv(l.key, "out", "");
-    laneEl(l.key).querySelector('[data-k="checks"]').innerHTML = "";
+    setv(l.key, "code", "");
+    pill(l.key, "", "running");
+    viewers[l.key].clear();
   }
   $("#go").disabled = true;
   const clock = setInterval(() => {
     for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000).toFixed(1));
   }, 100);
   try {
-    const res = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const res = await fetch("/api/race", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null }),
+    });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
@@ -170,7 +266,13 @@ $("#go").onclick = async () => {
   }
 };
 
-function handle(ev, state) {
+async function handle(ev, state) {
+  if (ev.type === "target") {
+    await targetViewer.setTarget(ev.mesh, true);
+    $("#tstats").textContent = `${ev.stats.n_faces} faces`;
+    for (const k in viewers) viewers[k].setTarget(ev.mesh);
+    return;
+  }
   const s = state[ev.lane];
   if (!s) return;
   if ((ev.type === "reasoning" || ev.type === "content") && s.ttft == null) {
@@ -181,60 +283,67 @@ function handle(ev, state) {
     s.reasoning += ev.text.length;
     setv(ev.lane, "status", `thinking… (~${Math.round(s.reasoning / 4)} tokens)`);
   } else if (ev.type === "content") {
-    s.content += ev.text;
-    setv(ev.lane, "status", "answering…");
-    setv(ev.lane, "out", s.content);
-  } else if (ev.type === "done") {
-    s.done = true;
+    s.code += ev.text;
+    setv(ev.lane, "status", "writing code…");
+    setv(ev.lane, "code", s.code);
+  } else if (ev.type === "restart") {
+    s.code = ""; s.reasoning = 0;
+    setv(ev.lane, "status", "connection dropped, retrying…");
+  } else if (ev.type === "generated") {
     const m = ev.metrics;
-    setv(ev.lane, "ttft", num(m.ttft_s));
-    setv(ev.lane, "tps", num(m.tok_per_s, 0));
-    setv(ev.lane, "e2e", num(m.e2e_s));
+    s.done = true;
+    setv(ev.lane, "e2e", num(m.e2e_s, 1));
+    setv(ev.lane, "tok", m.output_tokens ?? "–");
     setv(ev.lane, "cost", money(m.cost_usd));
-    if (ev.output) {
-      OUTPUTS[ev.lane] = ev.output;
-      setv(ev.lane, "out", JSON.stringify(ev.output, null, 2));
+    setv(ev.lane, "status", ev.error ? "API error: " + ev.error : "building the solid…");
+  } else if (ev.type === "graded") {
+    s.done = true;
+    if (ev.code) setv(ev.lane, "code", ev.code);
+    if (!ev.runs) {
+      pill(ev.lane, "no", "✗ " + (ev.error || "failed").slice(0, 90));
+      setv(ev.lane, "status", "code did not produce a solid");
+      return;
     }
-    const note = ev.error ? "error: " + ev.error
-      : ev.parse_error ? "invalid output: " + ev.parse_error
-      : `done · ${m.output_tokens} output tokens${m.usage_estimated ? " (estimated)" : ""}${m.cached_tokens ? ` · ${m.cached_tokens} cached input` : ""}`;
-    setv(ev.lane, "status", note);
-    laneEl(ev.lane).querySelector('[data-k="checks"]').innerHTML = Object.entries(ev.checks || {})
-      .map(([k, ok]) => `<span class="chk ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${esc(k)}</span>`).join("");
+    await viewers[ev.lane].setPart(ev.mesh);
+    if (ev.iou_aligned == null) {
+      pill(ev.lane, "warn", `built · ${ev.stats?.n_faces ?? "?"} faces`);
+      setv(ev.lane, "status", "custom spec: no reference to score against");
+    } else if (ev.iou_aligned >= 0.9) {
+      pill(ev.lane, "ok", `✓ matches target · IoU ${ev.iou_aligned.toFixed(3)}`);
+      setv(ev.lane, "status", "correct part");
+    } else {
+      pill(ev.lane, "no", `✗ wrong part · IoU ${ev.iou_aligned.toFixed(3)}`);
+      setv(ev.lane, "status", "builds, but not the specified part");
+    }
   } else if (ev.type === "error") {
     s.done = true;
-    setv(ev.lane, "status", "error: " + ev.error);
+    pill(ev.lane, "no", "✗ " + ev.error.slice(0, 90));
   }
 }
 
 async function loadScoreboard() {
   const sb = await (await fetch("/api/scoreboard")).json();
   if (!sb || !sb.lanes) return;
-  $("#sbmeta").textContent = `· ${sb.n_items} held-out items · concurrency ${sb.concurrency} · ${sb.created}`;
+  $("#sbmeta").textContent = `· ${sb.n} held-out specs · ${sb.shots} worked examples for API lanes · ${sb.created}`;
   const rows = sb.lanes.map((l) => `<tr>
-      <td>${esc(l.lane)} <span class="muted">${esc(l.model)}</span></td>
-      <td>${pctf(l.decision_acc)} <span class="muted">[${pctf(l.decision_ci95[0])}, ${pctf(l.decision_ci95[1])}]</span></td>
-      <td>${pctf(l.field_acc)}</td><td>${pctf(l.checks_pass)}</td>
-      <td>${num(l.e2e_p50)} / ${num(l.e2e_p95)}</td><td>${num(l.ttft_p50)}</td>
-      <td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td>
-      <td>${l.escalation_rate == null ? "" : pctf(l.escalation_rate) + " escalated"}</td></tr>`).join("");
-  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Decision acc [95% CI]</th><th>Field acc</th><th>Checks pass</th>
-    <th>Latency p50 / p95 s</th><th>TTFT p50 s</th><th>$ / 1K tasks</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      <td>${esc(l.lane)} <span class="muted">${esc(l.model)}${l.reasoning_effort ? " · " + esc(l.reasoning_effort) : ""}</span></td>
+      <td><b>${pct(l.success)}</b> <span class="muted">[${pct(l.success_ci95[0])}, ${pct(l.success_ci95[1])}]</span></td>
+      <td>${pct(l.success_iou95)}</td><td>${pct(l.run_rate)}</td><td>${num(l.mean_iou_aligned, 3)}</td>
+      <td>${pct(l.multi_part.success)}</td>
+      <td>${num(l.latency_p50, 1)} / ${num(l.latency_p95, 1)}</td>
+      <td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td></tr>`).join("");
+  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Correct (IoU ≥ 0.9) [95% CI]</th><th>IoU ≥ 0.95</th><th>Runs</th>
+    <th>Mean IoU</th><th>Multi-part correct</th><th>Latency p50 / p95 s</th><th>$ / 1K parts</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-$("#csend").onclick = async () => {
-  const lane = $("#clane").value, field = $("#cfield").value;
-  const output = OUTPUTS[lane];
-  if (!output) { $("#cmsg").textContent = "Race first, then correct a lane's answer."; return; }
-  let value;
-  try { value = JSON.parse($("#cvalue").value); } catch { value = $("#cvalue").value; }
-  const res = await fetch("/api/correct", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: $("#text").value, output, field, value }) });
-  const body = await res.json();
-  $("#cmsg").textContent = res.ok ? `Queued. ${body.count} corrections waiting for the next training round.` : "Rejected: " + body.detail;
-};
-
-init();
+init().then(() => {
+  const auto = new URLSearchParams(location.search).get("autorun");
+  if (auto !== null && EXAMPLES[auto]) {
+    $("#examples").value = auto;
+    $("#examples").onchange({ target: { value: auto } });
+    $("#go").onclick();
+  }
+});
 </script>
 </body>
 </html>

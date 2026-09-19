@@ -1,10 +1,12 @@
-"""Local stand-in for Baseten's OpenAI-compatible API, to build and rehearse the UI without spending credits.
+"""Local stand-in for Baseten's OpenAI-compatible API, to build and rehearse the demo without spending credits.
 
   uv run python scripts/mock_openai.py          # serves http://127.0.0.1:8001/v1
-  # then in .env: BASETEN_BASE_URL=http://127.0.0.1:8001/v1 and UNDERSTUDY_BASE_URL=http://127.0.0.1:8001/v1
+  BASETEN_BASE_URL=http://127.0.0.1:8001/v1 UNDERSTUDY_BASE_URL=http://127.0.0.1:8001/v1 \
+    uv run uvicorn app.server:app --port 8000
 
-Answers with the sample reference label when the input matches a sample, otherwise the task's example.
-The speeds are invented. Never quote numbers from the mock.
+For held-out specs it answers with the reference CadQuery code; "frontier" model names sometimes get a copy with
+the sketch scaled wrongly, so every UI state (correct, wrong part, crash) shows up. Speeds and answers are fake:
+never quote numbers from the mock.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import random
 import time
 import uuid
 
@@ -21,35 +24,33 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from understudy.config import ROOT
 from understudy.data import read_jsonl
-from understudy.tasks import load_task
 
-TASK = load_task()
 app = FastAPI()
-
-# model-name fragment -> (seconds to first token, output tokens/sec, reasoning tokens before the answer)
-PROFILES = {"Kimi-K3": (0.9, 110, 240), "GLM-5.3-Flash": (0.4, 130, 80), "GLM-5.3": (0.7, 125, 160)}
-DEDICATED = (0.12, 380, 0)
-
-REFERENCE = {}
-for path in (ROOT / "data" / "samples").glob(f"{TASK.name}_gold*.jsonl"):
-    for row in read_jsonl(path):
-        text = row.get("text") or "\n".join(row.get("lines", []))
-        REFERENCE[text.strip()] = row["label"]
+REFERENCE = {r["spec"].strip(): r["gold_code"] for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")}
+FALLBACK = "import cadquery as cq\n\nr = cq.Workplane('XY').box(0.6, 0.4, 0.1)\n"
+# model-name fragment -> (seconds to first token, output tokens/sec, reasoning tokens, chance of a wrong answer)
+PROFILES = {"Kimi-K3": (0.9, 110, 400, 0.15), "GLM-5.3": (0.8, 120, 300, 0.35)}
+DEDICATED = (0.12, 350, 0, 0.0)
 
 
 def profile(model: str) -> tuple:
     return next((v for k, v in PROFILES.items() if k in model), DEDICATED)
 
 
-def answer(messages: list[dict]) -> str:
-    user = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "")
-    label = next((lab for text, lab in REFERENCE.items() if text and text[:200] in user), TASK.example)
-    return json.dumps(label)
+def answer(messages: list[dict], wrong_rate: float) -> str:
+    spec = next((m.get("content") or "" for m in reversed(messages) if m.get("role") == "user"), "").strip()
+    code = REFERENCE.get(spec, FALLBACK)
+    roll = random.random()
+    if roll < wrong_rate / 2:
+        code = code.replace("extrude(", "extrude(2 * ")  # builds, wrong part
+    elif roll < wrong_rate:
+        code = code.replace("cq.Workplane", "cq.Workplan")  # crashes
+    return f"```python\n{code.strip()}\n```"
 
 
 @app.get("/v1/models")
 def models() -> dict:
-    names = ["moonshotai/Kimi-K3", "zai-org/GLM-5.3", "zai-org/GLM-5.3-Flash", "checkpoint-final", "Qwen/Qwen3-4B"]
+    names = ["moonshotai/Kimi-K3", "zai-org/GLM-5.3", "checkpoint-final", "Qwen/Qwen3-4B-Instruct-2507"]
     return {"object": "list", "data": [{"id": n, "object": "model"} for n in names]}
 
 
@@ -57,8 +58,8 @@ def models() -> dict:
 async def chat(request: Request):
     body = await request.json()
     model = body.get("model", "")
-    ttft, tps, reasoning_tokens = profile(model)
-    content = answer(body.get("messages", []))
+    ttft, tps, reasoning_tokens, wrong_rate = profile(model)
+    content = answer(body.get("messages", []), wrong_rate)
     prompt_tokens = sum(len(m.get("content") or "") for m in body.get("messages", [])) // 4
     usage = {
         "prompt_tokens": prompt_tokens,
@@ -68,35 +69,22 @@ async def chat(request: Request):
     }
     if not body.get("stream"):
         await asyncio.sleep(ttft + usage["completion_tokens"] / tps)
-        return JSONResponse(
-            {
-                "id": "chatcmpl-mock",
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": model,
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
-                "usage": usage,
-            }
-        )
+        choice = {"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}
+        return JSONResponse({"id": "mock", "object": "chat.completion", "created": int(time.time()), "model": model, "choices": [choice], "usage": usage})
 
     async def events():
         cid = "chatcmpl-" + uuid.uuid4().hex[:12]
 
         def chunk(delta: dict | None, finish: str | None = None, with_usage: bool = False) -> str:
-            payload = {
-                "id": cid,
-                "object": "chat.completion.chunk",
-                "created": int(time.time()),
-                "model": model,
-                "choices": [] if delta is None else [{"index": 0, "delta": delta, "finish_reason": finish}],
-            }
+            payload = {"id": cid, "object": "chat.completion.chunk", "created": int(time.time()), "model": model,
+                       "choices": [] if delta is None else [{"index": 0, "delta": delta, "finish_reason": finish}]}
             if with_usage:
                 payload["usage"] = usage
             return f"data: {json.dumps(payload)}\n\n"
 
         await asyncio.sleep(ttft)
         for _ in range(reasoning_tokens // 4):
-            yield chunk({"reasoning_content": "weighing… "})
+            yield chunk({"reasoning_content": "checking the sketch… "})
             await asyncio.sleep(4 / tps)
         for i in range(0, len(content), 16):
             yield chunk({"content": content[i : i + 16]})

@@ -8,6 +8,7 @@ retried with exponential backoff, but only before the first token arrives.
 from __future__ import annotations
 
 import asyncio
+import os
 import random
 import time
 from dataclasses import asdict, dataclass
@@ -26,7 +27,7 @@ _limiters: dict[str, RateLimiter] = {}
 
 def client_for(base_url: str) -> AsyncOpenAI:
     if base_url not in _clients:
-        _clients[base_url] = AsyncOpenAI(base_url=base_url, api_key=api_key(), max_retries=0, timeout=600)
+        _clients[base_url] = AsyncOpenAI(base_url=base_url, api_key=api_key(), max_retries=0, timeout=float(os.getenv("LLM_TIMEOUT", "1800")))
     return _clients[base_url]
 
 
@@ -114,6 +115,7 @@ async def stream_chat(
     temperature: float | None = 0.2,
     session_id: str | None = None,
     max_attempts: int = 6,
+    restart_on_disconnect: bool = False,
 ) -> AsyncIterator[dict]:
     """Yield {"type": "reasoning"|"content", "text": ...} deltas, then {"type": "done", "result": CallResult}."""
     kwargs: dict[str, Any] = {
@@ -175,6 +177,12 @@ async def stream_chat(
                 kwargs.pop("stream_options")  # server doesn't accept it; usage falls back to an estimate
                 continue
             retryable = status is None or status in RETRYABLE_STATUS
+            dropped = started and isinstance(e, openai.APIConnectionError) and restart_on_disconnect
+            if dropped and attempt < max_attempts - 1:
+                # the connection died mid-answer: an infrastructure failure, not the model's; start over cleanly
+                result.content, result.reasoning, result.ttft_s = "", "", None
+                yield {"type": "restart", "text": ""}
+                continue
             if started or not retryable or attempt == max_attempts - 1:
                 break
             retry_after = None

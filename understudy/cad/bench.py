@@ -18,7 +18,7 @@ import time
 from datetime import datetime
 from statistics import mean, median
 
-from ..config import ROOT, Lane, lanes as known_lanes
+from ..config import PRETTY, ROOT, Lane, lanes as known_lanes
 from ..data import read_jsonl, write_jsonl
 from ..llm import complete
 from ..stats import bootstrap_ci, pct
@@ -36,9 +36,13 @@ def resolve_lanes(spec: str) -> list[Lane]:
         if item in known:
             out.append(known[item])
             continue
+        if "/" not in item.partition(":")[0]:
+            print(f"skipping lane {item!r}: not configured (set UNDERSTUDY_BASE_URL for specialist/base-4b)")
+            continue
         slug, _, effort = item.partition(":")
         key = slug.split("/")[-1].lower() + (f"@{effort}" if effort else "")
-        out.append(Lane(key, key, slug, reasoning_effort=effort or None))
+        label = PRETTY.get(slug, slug.split("/")[-1]) + (f" ({effort})" if effort else "")
+        out.append(Lane(key, label, slug, reasoning_effort=effort or None))
     return out
 
 
@@ -67,6 +71,7 @@ async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries
                 max_tokens=max_tokens,
                 temperature=0.0 if lane.dedicated else None,
                 session_id=f"cad-{lane.key}-{slot % 4}",
+                restart_on_disconnect=True,
             )
         except Exception as e:  # noqa: BLE001 - record and move on
             graded = {"runs": False, "error": f"api: {type(e).__name__}: {str(e)[:200]}"}
@@ -179,7 +184,10 @@ def markdown(summaries: list[dict], meta: dict) -> str:
 
 
 async def run(args) -> None:
-    records = sample(read_jsonl(args.data), args.n, args.seed)
+    records = read_jsonl(args.data)
+    if args.multi_only:
+        records = [r for r in records if r["n_parts"] > 1]
+    records = sample(records, args.n, args.seed)
     shots = read_jsonl(DATA / "shots.jsonl")[: args.shots] if args.shots else []
     lanes = resolve_lanes(args.lanes)
     created = datetime.now()
@@ -234,6 +242,8 @@ def main() -> None:
     ap.add_argument("--max-tokens", type=int, default=16384)
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
+    ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
     ap.add_argument("--tag", default="bench")
     asyncio.run(run(ap.parse_args()))
 
