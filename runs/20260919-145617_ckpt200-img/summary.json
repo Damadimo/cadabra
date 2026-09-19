@@ -1,0 +1,80 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 200,
+  "shots": 0,
+  "retries": 0,
+  "modality": "image",
+  "best_of": 1,
+  "seed": 0,
+  "created": "2026-09-19T14:56:17",
+  "lanes": [
+    {
+      "lane": "specialist",
+      "label": "Understudy-CAD 4B (ours)",
+      "model": "understudy-cad-vl",
+      "reasoning_effort": null,
+      "n": 200,
+      "n_infra_failed": 0,
+      "success": 0.61,
+      "success_ci95": [
+        0.54,
+        0.675
+      ],
+      "success_iou95": 0.575,
+      "run_rate": 0.95,
+      "mean_iou_aligned": 0.7232080629846789,
+      "median_chamfer": 0.00396215457956383,
+      "single_part": {
+        "n": 182,
+        "success": 0.6373626373626373
+      },
+      "multi_part": {
+        "n": 18,
+        "success": 0.3333333333333333
+      },
+      "latency_p50": 19.46481579149895,
+      "latency_p95": 55.43947289169955,
+      "ttft_p50": 0.7609922494993953,
+      "output_tokens_mean": 229.62,
+      "attempts_mean": 1,
+      "oracle_success": null,
+      "cost_per_1k_usd": 2.622814740540695,
+      "cost_note": "GPU $0.85/h amortized at concurrency 16",
+      "wall_s": 2221.6783684580005
+    },
+    {
+      "lane": "base-4b",
+      "label": "Base model (untuned)",
+      "model": "Qwen/Qwen3-VL-4B-Instruct",
+      "reasoning_effort": null,
+      "n": 197,
+      "n_infra_failed": 3,
+      "success": 0.1319796954314721,
+      "success_ci95": [
+        0.09137055837563451,
+        0.17766497461928935
+      ],
+      "success_iou95": 0.12690355329949238,
+      "run_rate": 0.34517766497461927,
+      "mean_iou_aligned": 0.19986675238067075,
+      "median_chamfer": 0.0065462238000943695,
+      "single_part": {
+        "n": 179,
+        "success": 0.1340782122905028
+      },
+      "multi_part": {
+        "n": 18,
+        "success": 0.1111111111111111
+      },
+      "latency_p50": 17.9577222909993,
+      "latency_p95": 200.42074132539963,
+      "ttft_p50": 0.6363482920005481,
+      "output_tokens_mean": 600.9086294416244,
+      "attempts_mean": 1,
+      "oracle_success": null,
+      "cost_per_1k_usd": 2.6624719844682034,
+      "cost_note": "GPU $0.85/h amortized at concurrency 16",
+      "wall_s": 2221.441331041
+    }
+  ]
+}

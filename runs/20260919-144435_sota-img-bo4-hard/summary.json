@@ -1,0 +1,80 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 65,
+  "shots": 2,
+  "retries": 0,
+  "modality": "image",
+  "best_of": 4,
+  "seed": 0,
+  "created": "2026-09-19T14:44:35",
+  "lanes": [
+    {
+      "lane": "kimi-k3@high",
+      "label": "Kimi K3 (high)",
+      "model": "moonshotai/Kimi-K3",
+      "reasoning_effort": "high",
+      "n": 60,
+      "n_infra_failed": 5,
+      "success": 0.48333333333333334,
+      "success_ci95": [
+        0.35,
+        0.6166666666666667
+      ],
+      "success_iou95": 0.4166666666666667,
+      "run_rate": 1.0,
+      "mean_iou_aligned": 0.7777167132165609,
+      "median_chamfer": 0.0048124598622560424,
+      "single_part": {
+        "n": 48,
+        "success": 0.5208333333333334
+      },
+      "multi_part": {
+        "n": 12,
+        "success": 0.3333333333333333
+      },
+      "latency_p50": 51.79508679149967,
+      "latency_p95": 122.15300113924982,
+      "ttft_p50": 4.427928333500859,
+      "output_tokens_mean": 15087.433333333332,
+      "attempts_mean": 1,
+      "oracle_success": 0.55,
+      "cost_per_1k_usd": 251.66521016949156,
+      "cost_note": "list price per token",
+      "wall_s": 2932.3904429999984
+    },
+    {
+      "lane": "glm-5.3-flash@high",
+      "label": "GLM-5.3 Flash (high)",
+      "model": "zai-org/GLM-5.3-Flash",
+      "reasoning_effort": "high",
+      "n": 61,
+      "n_infra_failed": 4,
+      "success": 0.45901639344262296,
+      "success_ci95": [
+        0.32786885245901637,
+        0.5737704918032787
+      ],
+      "success_iou95": 0.39344262295081966,
+      "run_rate": 1.0,
+      "mean_iou_aligned": 0.7505168947235795,
+      "median_chamfer": 0.005295212846218732,
+      "single_part": {
+        "n": 49,
+        "success": 0.4897959183673469
+      },
+      "multi_part": {
+        "n": 12,
+        "success": 0.3333333333333333
+      },
+      "latency_p50": 11.216258250000465,
+      "latency_p95": 59.49272004100021,
+      "ttft_p50": 1.547300083000664,
+      "output_tokens_mean": 3553.4590163934427,
+      "attempts_mean": 1,
+      "oracle_success": 0.4918032786885246,
+      "cost_per_1k_usd": 4.807024999999999,
+      "cost_note": "list price per token",
+      "wall_s": 2857.239535458999
+    }
+  ]
+}
