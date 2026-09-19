@@ -25,12 +25,7 @@ weights:
   # BDN mirrors the repo at push time and mounts it read-only before the container starts.
   - source: "hf://Qwen/Qwen3-VL-4B-Instruct@ebb281ec70b05090aa6165b016eac8ec08e71b17"
     mount_location: "/models/qwen3-vl-4b"
-    auth:
-      auth_method: CUSTOM_SECRET
-      auth_secret_name: "hf_access_token"
     ignore_patterns: ["*.md", ".gitattributes"]
-secrets:
-  hf_access_token: null
 environment_variables:
   VLLM_LOGGING_LEVEL: INFO
 docker_server:

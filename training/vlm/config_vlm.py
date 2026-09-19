@@ -18,6 +18,9 @@ from truss_train import CacheConfig, CheckpointingConfig, Compute, Image, Runtim
 BASE_IMAGE = "pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime"
 SMOKE = os.environ.get("SMOKE") == "1"
 
+# Qwen3-VL-4B is public: no token needed. HF_SECRET=<workspace secret name> at push time adds an authenticated download.
+_hf = {"HF_TOKEN": SecretReference(name=os.environ["HF_SECRET"])} if os.environ.get("HF_SECRET") else {}
+
 training_runtime = Runtime(
     start_commands=["chmod +x ./run_vlm.sh && ./run_vlm.sh"],
     environment_variables={
@@ -37,7 +40,7 @@ training_runtime = Runtime(
         "EVAL_BENCH": "1",
         "EVAL_N": "32" if SMOKE else "500",  # after saving: greedy answers for the 500 held-out sheets, graded -> bench_eval/results.json (~6-10 min)
         "SAVE_ONLY_MODEL": "1",  # checkpoints hold the adapter only (no optimizer state): ~3x smaller, faster to sync/deploy
-        "HF_TOKEN": SecretReference(name="hf_access_token"),  # workspace secret: authenticated (faster) weight download
+        **_hf,
     },
     cache_config=CacheConfig(enabled=True),  # persists /root/.cache (HF weights, pip) across jobs in this project
     checkpointing_config=CheckpointingConfig(enabled=True),

@@ -30,6 +30,9 @@ SFT_CHECKPOINT = os.environ.get("SFT_CHECKPOINT")
 if not SFT_JOB_ID or not SFT_CHECKPOINT:
     raise SystemExit("set SFT_JOB_ID and SFT_CHECKPOINT (e.g. checkpoint-1900) of the stage-1 sheet job")
 
+# Qwen3-VL-4B is public: no token needed. HF_SECRET=<workspace secret name> at push time adds an authenticated download.
+_hf = {"HF_TOKEN": SecretReference(name=os.environ["HF_SECRET"])} if os.environ.get("HF_SECRET") else {}
+
 training_runtime = Runtime(
     start_commands=["chmod +x ./run_grpo_vlm.sh && ./run_grpo_vlm.sh"],
     environment_variables={
@@ -47,7 +50,7 @@ training_runtime = Runtime(
         "REWARD_WORKERS": "12",
         "MERGE_AT_END": "1",
         "EVAL_BENCH": "1",  # held-out sheets, greedy, graded after saving -> bench_eval/results.json
-        "HF_TOKEN": SecretReference(name="hf_access_token"),
+        **_hf,
     },
     cache_config=CacheConfig(enabled=True),
     checkpointing_config=CheckpointingConfig(enabled=True),

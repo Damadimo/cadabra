@@ -35,8 +35,6 @@ weights:
   - source: "bt://TRAINING_PROJECT_NAME@TRAINING_JOB_ID/merged"  # e.g. bt://understudy-cad-vlm-sft@abc1234/merged
     mount_location: "/models/understudy"
     # Baseten authenticates bt:// sources to your own training projects automatically; no auth block.
-secrets:
-  hf_access_token: null
 environment_variables:
   VLLM_LOGGING_LEVEL: INFO
   HF_HUB_OFFLINE: "1"  # everything vLLM needs is in the mounted checkpoint
