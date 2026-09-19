@@ -16,30 +16,30 @@
 - SFT + GRPO jobs for the text model, both dry-run verified on CPU
 - 3D race demo, benchmark runner, tests
 
-## The one decision still open: text specs or drawing sheets
+## Direction: drawing sheets (decided 05:20)
 
-Measured on held-out parts (WORKLOG.md has the numbers): frontier models are strong on explicit **text** specs, so the
-text model's win is mostly cost/latency. **Drawing sheets** (4 rendered views + bounding box) are where frontier models
-struggle. Take the drawing-sheet (vision) route only if both gates pass:
+Measured on held-out parts (WORKLOG.md): frontier models are 88–95% correct on explicit **text** specs (no room for a
+strong delta), but on **drawing sheets** (4 rendered views + bounding box) Kimi K3 drops to 62.5% overall and **22.5% on
+complex parts**. The headline model is Qwen3-VL-4B fine-tuned on ~17k rendered sheets. The text model (Qwen3-4B,
+`training/`) is the fallback and a cost/latency story.
 
-1. Kimi K3's success on sheets (complex parts) is clearly below what a trained model can plausibly reach.
-2. A fine-tuned Qwen3-VL-4B can be served on Baseten with image input (`deploy/README.md`).
+Two things only you can unblock:
+1. **H100 training access** at the Baseten booth (`baseten train capacity describe` must show capacity).
+2. **A payment method on the workspace** (Baseten → Billing). Model deploys are refused without one, even with credits.
 
-Otherwise ship the text model and lead with cost/latency plus the GLM-5.3 comparison.
+## Runbook once unblocked
 
-## Timeline from when the booth opens
-
-| Time | Work | Done when |
+| Step | Command | Time |
 |---|---|---|
-| Booth opens | Ask for H100 access + the questions below; `baseten train capacity describe` shows capacity | Capacity > 0 |
-| +0:10 | Text SFT smoke run: `MAX_STEPS=50` in training/config.py, push, watch logs (~5 min) | Job completes, checkpoint synced |
-| +0:20 | Full text SFT (2 epochs, ~30–60 min). In parallel on a 2nd GPU if granted: VLM SFT (`training/vlm/`) | Checkpoints synced |
-| +1:30 | Deploy the checkpoint (`baseten train checkpoint deploy`), set UNDERSTUDY_BASE_URL/MODEL in .env, `scripts/smoke.py` | Endpoint answers |
-| +1:45 | Benchmark ours on all 500 held-out parts: `--lanes specialist,base-4b --shots 0` (fast, no rate limit) | runs/…_ours |
-| +2:15 | Error analysis on failures → optional GRPO (`config_grpo.py`, ~1–2 h) or a second SFT round | Decision logged |
-| 12:30 PM | **Submit the initial Devpost with all prizes ticked** | Submitted |
-| Afternoon | Final SOTA benchmark at scale (200–500 parts per frontier lane; rate-limited, run in background) | Final table |
-| Evening | Demo polish, pick demo parts (data/cad/demo.json), video, README results | Freeze at 1 AM |
+| 1. Data (already built unless re-rendered) | `uv run python -m understudy.cad.build_vlm` | 2 min |
+| 2. Smoke run (20 steps) | set `MAX_STEPS=20` in `training/vlm/config_vlm.py`; `cd training/vlm && baseten train push --config config_vlm.py` | ~10 min |
+| 3. Full run | set `MAX_STEPS=-1`; push again; `baseten train job logs --job-id <id> --tail` | ~1.5–2 h |
+| 4. Deploy | `./scripts/deploy_vlm.sh <job_id> H100_40GB` (prints the .env lines) | 10–20 min |
+| 5. Benchmark ours | `uv run python -m understudy.cad.bench --modality image --lanes specialist --n 500 --shots 0 --concurrency 16 --tag ours-img` | ~10 min |
+| 6. Compare | `uv run python scripts/leaderboard.py --latest sota-img,ours-img` | instant |
+| 7. Record demo races | race UI with `record: true` on 3–4 parts (replays are the offline fallback) | 15 min |
+| Optional | base model lane: `baseten model push --dir deploy/vlm_base`, set `BASE_MODEL_URL`, rerun step 5 with `--lanes base-4b` | 20 min |
+| Optional | text fallback: `cd training && baseten train push --config config.py` (~40 min), deploy with `baseten train checkpoint deploy` | 1 h |
 
 ## Questions for the Baseten booth
 
