@@ -142,6 +142,16 @@ async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries
     return row_for(lane, rec, graded, code, calls, attempts)
 
 
+def infra_failed(row: dict) -> bool:
+    """The API never returned an answer (402/5xx/disconnect/timeout with no output): not the model's mistake, so the
+    row is left out of every score. A reply without a code block, or code that fails, still counts as a miss."""
+    err = str(row.get("error") or "")
+    return not row.get("output_tokens") and (err.startswith("api:") or err == "no candidate produced code")
+
+
+FATAL = ("402", "401", "403", "payment")  # account-level errors: every later call fails the same way
+
+
 def row_for(lane: Lane, rec: dict, graded: dict, code: str | None, calls: list, attempts: int, extra: dict | None = None) -> dict:
     costs = [c.cost_usd for c in calls]
     iou_a = graded.get("iou_aligned") or 0.0
@@ -170,7 +180,16 @@ def row_for(lane: Lane, rec: dict, graded: dict, code: str | None, calls: list, 
 
 
 def summarize(rows: list[dict], lane: Lane, wall_s: float, concurrency: int) -> dict:
+    infra = sum(infra_failed(r) for r in rows)
+    rows = [r for r in rows if not infra_failed(r)] or rows[:0]
     n = len(rows)
+    if not n:
+        return {"lane": lane.key, "label": lane.label, "model": lane.model, "reasoning_effort": lane.reasoning_effort, "n": 0,
+                "n_infra_failed": infra, "success": None, "success_ci95": [None, None], "success_iou95": None, "run_rate": None,
+                "mean_iou_aligned": None, "median_chamfer": None, "single_part": {"n": 0, "success": None},
+                "multi_part": {"n": 0, "success": None}, "latency_p50": None, "latency_p95": None, "ttft_p50": None,
+                "output_tokens_mean": None, "attempts_mean": None, "oracle_success": None, "cost_per_1k_usd": None,
+                "cost_note": "no answers", "wall_s": wall_s}
     succ = [1.0 if r["success"] else 0.0 for r in rows]
     lo, hi = bootstrap_ci(succ)
     ran = [r for r in rows if r["runs"]]
@@ -192,6 +211,7 @@ def summarize(rows: list[dict], lane: Lane, wall_s: float, concurrency: int) -> 
         "model": lane.model,
         "reasoning_effort": lane.reasoning_effort,
         "n": n,
+        "n_infra_failed": infra,
         "success": mean(succ),
         "success_ci95": [lo, hi],
         "success_iou95": mean(1.0 if r["runs"] and (r["iou_aligned"] or 0) >= 0.95 else 0.0 for r in rows),
@@ -228,6 +248,9 @@ def markdown(summaries: list[dict], meta: dict) -> str:
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for s in summaries:
+        if not s["n"]:
+            lines.append(f"| {s['lane']} | `{s['model']}` | no answers ({s.get('n_infra_failed', 0)} API failures) |" + " |" * 8)
+            continue
         ci = s["success_ci95"]
         lines.append(
             f"| {s['lane']} | `{s['model']}` ({s['reasoning_effort'] or 'default'}) | **{_p(s['success'])}** [{_p(ci[0])}, {_p(ci[1])}] "
@@ -236,6 +259,11 @@ def markdown(summaries: list[dict], meta: dict) -> str:
             f"| {_f(s['output_tokens_mean'], 0)} | {'–' if s['cost_per_1k_usd'] is None else '$' + format(s['cost_per_1k_usd'], '.2f')} |"
         )
     lines += ["", "Costs: " + "; ".join(f"{s['lane']}: {s['cost_note']}" for s in summaries)]
+    failed = {s["lane"]: s.get("n_infra_failed", 0) for s in summaries if s.get("n_infra_failed")}
+    if failed:
+        lines += ["", "Left out (the API returned no answer, e.g. 402/5xx/disconnect): " + ", ".join(f"{k} {v}" for k, v in failed.items())]
+    if meta.get("aborted"):
+        lines += ["", f"Run stopped early: {meta['aborted']}"]
     return "\n".join(lines) + "\n"
 
 
@@ -251,7 +279,7 @@ async def run(args) -> None:
     if args.min_faces:
         records = [r for r in records if (r.get("n_faces") or 0) >= args.min_faces]
     if args.exclude:
-        seen = {row["id"] for d in args.exclude.split(",") for row in read_jsonl(ROOT / "runs" / d / "results.jsonl")}
+        seen = {row["id"] for d in args.exclude.split(",") for row in read_jsonl(ROOT / "runs" / d / "results.jsonl") if not infra_failed(row)}
         records = [r for r in records if r["id"] not in seen]
     records = sample(records, args.n, args.seed)
     shots = read_jsonl(DATA / "shots.jsonl")[: args.shots] if args.shots else []
@@ -261,6 +289,7 @@ async def run(args) -> None:
     created = datetime.now()
     out_dir = ROOT / "runs" / f"{created:%Y%m%d-%H%M%S}_{args.tag}"
     print(f"{len(records)} specs ({sum(r['n_parts'] > 1 for r in records)} multi-part) x {[l.key for l in lanes]}", flush=True)
+    aborted: list[str] = []
     with CadPool(workers=args.workers) as pool:
 
         async def lane_run(lane: Lane):
@@ -270,16 +299,22 @@ async def run(args) -> None:
             async def one(i, rec):
                 nonlocal done
                 async with sem:
+                    if aborted:
+                        return None
                     lane_shots = [] if (lane.dedicated and not args.shots_for_ours) else shots
                     row = await solve(lane, rec, pool, lane_shots, args.retries, args.max_tokens if not lane.dedicated else 2048, i, index,
                                       best_of=args.best_of, temperature=args.temperature)
+                err = str(row.get("error") or "")
+                if infra_failed(row) and any(code in err for code in FATAL) and not aborted:
+                    aborted.append(f"{lane.key}: {err[:160]}")
+                    print(f"ABORTING: account-level API error, every later call would fail too -> {aborted[0]}", flush=True)
                 done += 1
                 if done % 10 == 0 or done == len(records):
                     print(f"  {lane.key}: {done}/{len(records)}", flush=True)
                 return row
 
             t0 = time.perf_counter()
-            rows = await asyncio.gather(*(one(i, r) for i, r in enumerate(records)))
+            rows = [r for r in await asyncio.gather(*(one(i, r) for i, r in enumerate(records))) if r is not None]
             return rows, summarize(rows, lane, time.perf_counter() - t0, args.concurrency)
 
         results = await asyncio.gather(*(lane_run(l) for l in lanes))
@@ -293,6 +328,7 @@ async def run(args) -> None:
         "modality": args.modality,
         "best_of": args.best_of,
         "created": created.isoformat(timespec="seconds"),
+        **({"aborted": aborted[0]} if aborted else {}),
     }
     write_jsonl(out_dir / "results.jsonl", rows)
     (out_dir / "summary.json").write_text(json.dumps({**meta, "lanes": summaries}, indent=2))
@@ -318,7 +354,7 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.7, help="sampling temperature for --best-of")
     ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
     ap.add_argument("--min-faces", type=int, default=0, help="only parts with at least this many faces")
-    ap.add_argument("--exclude", default="", help="comma-separated run dirs under runs/: skip parts already graded there")
+    ap.add_argument("--exclude", default="", help="comma-separated run dirs under runs/: skip parts already scored there (API failures are redone)")
     ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
     ap.add_argument("--tag", default="bench")
     asyncio.run(run(ap.parse_args()))

@@ -4,7 +4,8 @@
   uv run python scripts/leaderboard.py --latest sota-img,sota-img-rest-flash --out-json data/demo/scoreboard.json
 
 Rows of the same lane, input modality and best-of setting are pooled across runs (a part graded twice counts once,
-newest run wins), so a 200-part run plus a 300-part run of the other parts reads as one 500-part result.
+newest run wins), so a 200-part run plus a 300-part run of the other parts reads as one 500-part result. Rows where
+the API returned no answer at all (402/5xx/disconnect) are left out: they say nothing about the model.
 Tiers by the reference solid's face count: simple (<= 6 faces: boxes, cylinders), medium (7-12), complex (>= 13),
 plus multi-part. Success = code runs and aligned IoU >= 0.9. CIs are bootstrap 95%.
 """
@@ -16,6 +17,7 @@ import json
 from pathlib import Path
 from statistics import mean
 
+from understudy.cad.bench import infra_failed
 from understudy.config import PRETTY, ROOT
 from understudy.data import read_jsonl
 from understudy.stats import bootstrap_ci
@@ -42,6 +44,9 @@ def pctl(xs: list[float], q: float) -> float | None:
     return xs[min(len(xs) - 1, int(q / 100 * len(xs)))] if xs else None
 
 
+LEFT_OUT: dict[str, int] = {}
+
+
 def load(dirs: list[Path]) -> dict:
     """(modality, lane, best_of) -> {"lane": lane summary of the newest run, "runs": [...], "rows": {id: row}}."""
     groups: dict[tuple, dict] = {}
@@ -50,6 +55,9 @@ def load(dirs: list[Path]) -> dict:
         modality, best_of = meta.get("modality", "text"), meta.get("best_of", 1)
         by_lane = {s["lane"]: s for s in meta["lanes"]}
         for r in read_jsonl(d / "results.jsonl"):
+            if infra_failed(r):
+                LEFT_OUT[r["lane"]] = LEFT_OUT.get(r["lane"], 0) + 1
+                continue
             g = groups.setdefault((modality, r["lane"], best_of), {"lane": by_lane[r["lane"]], "runs": {}, "rows": {}, "shots": meta["shots"]})
             g["lane"] = by_lane[r["lane"]]
             g["runs"][d.name] = by_lane[r["lane"]]
@@ -105,6 +113,8 @@ def main() -> None:
         print(f"| {e['modality']} | {e['label']} | {e['best_of']} | " + " | ".join(cell([r for r in rows if f(r)]) for f in TIERS.values())
               + f" | {e['latency_p50']:.1f} | {cost} |")
     print("\nRuns: " + ", ".join(sorted({run for e in board for run in e["runs"]})))
+    if LEFT_OUT:
+        print("Left out, API returned no answer: " + ", ".join(f"{k} {v}" for k, v in sorted(LEFT_OUT.items())))
     if args.out_json:
         created = max(json.loads((d / "summary.json").read_text())["created"] for d in dirs)
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
