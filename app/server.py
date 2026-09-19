@@ -206,7 +206,9 @@ def parts() -> list[dict]:
         ours = next((l for l in lanes if l["ours"]), None)
         out.append({"id": i, "title": title_of(rec), "tier": tier(rec), "n_faces": rec.get("n_faces"), "n_parts": rec["n_parts"],
                     "models": len(lanes), "ours_correct": bool(ours and ours["success"]),
-                    "frontier_correct": sum(1 for l in lanes if not l["ours"] and l["success"])})
+                    "frontier_correct": sum(1 for l in lanes if not l["ours"] and l["success"]),
+                    "results": [{"key": l["key"], "label": l["label"], "ours": l["ours"], "success": l["success"],
+                                 "iou": l.get("iou_aligned")} for l in lanes]})
     return sorted(out, key=lambda r: (["simple", "medium", "complex", "multi-part"].index(r["tier"]), -(r["n_faces"] or 0), r["id"]))
 
 

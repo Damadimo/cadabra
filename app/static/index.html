@@ -40,6 +40,34 @@
   .split { display: grid; grid-template-columns: minmax(260px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
   @media (max-width: 1020px) { .split { grid-template-columns: 1fr; } }
   .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; display: block; }
+  .col { display: grid; gap: 18px; align-content: start; }
+  .dropdown { position: relative; }
+  .model-btn { display: inline-flex; align-items: center; gap: 9px; max-width: 460px; }
+  .menu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 330px; background: var(--surface);
+          border: 1px solid var(--line-2); border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgba(16,21,17,.10); }
+  .menu button { display: flex; width: 100%; align-items: center; gap: 9px; border: 0; background: transparent; border-radius: 10px;
+                 padding: 9px 11px; text-align: left; font-size: 13.5px; }
+  .menu button:hover { background: var(--inset); }
+  .menu button.on { background: var(--ink); color: #F5F8F4; }
+  .menu button.on .iou { color: #C9D6CB; }
+  .mark { font-weight: 600; }
+  .mark.ok { color: var(--green-deep); }
+  .mark.no { color: var(--bad); }
+  .mark.truth { color: #D98FD6; }
+  .iou { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 430px; max-width: 92vw; background: var(--surface);
+            border-left: 1px solid var(--line); padding: 18px; overflow: auto; z-index: 60; box-shadow: -12px 0 30px rgba(16,21,17,.08); }
+  .drawer .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+  .drawer .row:hover { background: var(--inset); }
+  .drawer .row.on { background: #F1F8F2; }
+  .drawer .row .meta { font: 11px var(--mono); color: var(--muted); }
+  .drawer .row .marks { margin-left: auto; display: flex; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+  .dot.ok { background: var(--green-deep); } .dot.no { background: var(--bad); } .dot.na { background: var(--line-2); }
+  .filters button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .backdrop { position: fixed; inset: 0; background: rgba(16,21,17,.18); z-index: 50; }
+  input[type=search] { font: inherit; width: 100%; border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 14px; }
+  .icon { padding: 8px 13px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: 7px 15px; font-size: 13px; color: var(--ink-2); }
   .chip:hover { border-color: var(--ink); }
@@ -70,6 +98,8 @@
   .m { background: var(--inset); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; }
   .m b { display: block; font: 500 15px var(--mono); }
   .m span { color: var(--muted); font-size: 10.5px; }
+  pre { margin: 0; background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+        max-height: 430px; overflow: auto; font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   details pre { margin: 8px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 12px; max-height: 280px; overflow: auto; font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   summary { cursor: pointer; color: var(--muted); font: 11px var(--mono); }
   table { width: 100%; border-collapse: collapse; }
@@ -95,28 +125,39 @@
 <main>
   <section id="compare" class="card">
     <div class="bar">
+      <button id="prev" class="icon" title="previous part (←)">←</button>
       <select id="parts"></select>
-      <label class="check"><input type="checkbox" id="onlywins"> only parts both frontier models get wrong</label>
-      <button id="shuffle">Shuffle</button>
+      <button id="next" class="icon" title="next part (→)">→</button>
+      <button id="partsBtn">Parts <span class="iou" id="partsCount" style="margin:0"></span></button>
       <button id="raceThis">Race this part live</button>
       <span class="label" id="partnote"></span>
     </div>
-    <div class="split" style="margin-top:14px">
-      <div class="card sheet">
-        <div class="label">input · drawing sheet</div>
-        <h3 style="margin:6px 0 4px" id="parttitle"></h3>
-        <div class="label" style="margin-bottom:10px" id="bboxline"></div>
-        <img id="sheet" alt="drawing sheet">
+
+    <div class="split" style="margin-top:16px">
+      <div class="col">
+        <div class="card sheet">
+          <div class="label">input · drawing sheet</div>
+          <h3 style="margin:6px 0 4px" id="parttitle"></h3>
+          <div class="label" style="margin-bottom:10px" id="bboxline"></div>
+          <img id="sheet" alt="drawing sheet">
+        </div>
+        <div class="card">
+          <div class="label" id="codeowner">program</div>
+          <pre id="stagecode" style="margin-top:8px"></pre>
+        </div>
       </div>
+
       <div class="card">
-        <div class="chips" id="chips"></div>
-        <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
-        <div class="bar" style="margin-top:10px">
-          <label class="check"><input type="checkbox" id="overlay" checked> overlay the reference solid</label>
+        <div class="bar">
+          <div class="dropdown">
+            <button id="modelBtn" class="model-btn"><span id="modelBtnText">choose a model</span><span aria-hidden="true">▾</span></button>
+            <div class="menu" id="modelMenu" hidden></div>
+          </div>
+          <label class="check"><input type="checkbox" id="overlay" checked> overlay reference</label>
           <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
           <span class="stats" id="stagestats"></span>
         </div>
-        <details style="margin-top:10px"><summary>program</summary><pre id="stagecode"></pre></details>
+        <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
         <div class="foot">IoU is volumetric overlap with the reference solid, maximised over the 24 axis rotations; a part counts as
           correct at 0.9 or above. Time, cost and tokens are what that model actually used on this part in the benchmark run.</div>
       </div>
@@ -152,6 +193,28 @@
     <div class="foot" id="sbfoot"></div>
   </section>
 </main>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="parts">
+  <div class="bar" style="justify-content:space-between">
+    <h2>Parts</h2>
+    <button id="drawerClose" class="icon" title="close (Esc)">✕</button>
+  </div>
+  <div style="margin-top:12px"><input type="search" id="search" placeholder="search parts…"></div>
+  <div class="bar filters" style="margin-top:10px" id="filters">
+    <button data-f="all" class="on">All</button>
+    <button data-f="wins">Only we get right</button>
+    <button data-f="missed">We get wrong</button>
+    <button data-f="hard">Medium &amp; complex</button>
+  </div>
+  <div class="bar" style="margin-top:10px">
+    <button id="selAll" class="icon">Include shown</button>
+    <button id="selNone" class="icon">Exclude shown</button>
+    <span class="label" id="drawerCount"></span>
+  </div>
+  <div class="label" id="legend" style="margin-top:12px"></div>
+  <div id="partlist" style="margin-top:6px"></div>
+</aside>
 
 <script type="importmap">{"imports": {"three": "/static/vendor/three.module.min.js", "three/addons/": "/static/vendor/addons/"}}</script>
 <script type="module">
@@ -260,51 +323,61 @@ function showTab(name) {
 }
 for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTab(name);
 
-/* ---------- compare: one stage, chips pick whose answer it shows ---------- */
-let PARTS = [], DATA = null, picked = 1;
+/* ---------- compare: one stage; a dropdown picks whose answer it shows, a drawer curates the parts ---------- */
+let PARTS = [], DATA = null, picked = 1, filter = "all";
+const EXCLUDED = new Set(JSON.parse(localStorage.getItem("cadabra.excluded") || "[]"));
 const stage = new Viewer($("#stage"), OURS, 0.85);
+
+const included = () => PARTS.filter((p) => !EXCLUDED.has(p.id));
+const saveExcluded = () => localStorage.setItem("cadabra.excluded", JSON.stringify([...EXCLUDED]));
 
 async function loadParts() {
   PARTS = await (await fetch("/api/parts")).json();
   fillParts();
-  if (PARTS.length) await showPart(new URLSearchParams(location.search).get("part") || pickDefault());
+  const wanted = new URLSearchParams(location.search).get("part");
+  if (PARTS.length) await showPart(wanted && PARTS.some((p) => p.id === wanted) ? wanted : pickDefault());
 }
 
 function fillParts() {
-  const only = $("#onlywins").checked;
-  const list = PARTS.filter((p) => !only || (p.ours_correct && p.frontier_correct === 0));
+  const list = included();
   const groups = {};
   for (const p of list) (groups[p.tier] ||= []).push(p);
   $("#parts").innerHTML = Object.entries(groups).map(([tier, ps]) =>
     `<optgroup label="${esc(tier)} (${ps.length})">` +
     ps.map((p) => `<option value="${esc(p.id)}">${esc(p.title)} · ${p.n_faces} faces${p.n_parts > 1 ? ", " + p.n_parts + " parts" : ""}</option>`).join("") +
     `</optgroup>`).join("");
+  $("#partsCount").textContent = `${list.length} of ${PARTS.length}`;
 }
 
 function pickDefault() {
-  const wins = PARTS.filter((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple");
-  return (wins[0] || PARTS[0]).id;
+  const pool = included().length ? included() : PARTS;
+  return (pool.find((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple") || pool[0]).id;
 }
 
-function entries() {
-  return [{ ...DATA.reference, truth: true, label: "Reference (dataset)" }, ...DATA.lanes];
-}
+const entries = () => [{ ...DATA.reference, truth: true, label: "Reference (dataset)" }, ...DATA.lanes];
 
-function drawChips() {
-  $("#chips").innerHTML = entries().map((c, i) => {
-    const state = c.truth ? "truth" : c.success ? "ok" : "no";
-    const mark = c.truth ? "◆" : c.success ? "✓" : "✗";
-    const note = c.truth ? "ground truth" : c.iou_aligned == null ? "no solid" : "IoU " + c.iou_aligned.toFixed(3);
-    return `<button class="chip ${state} ${i === picked ? "on" : ""}" data-i="${i}">
-      <span class="mark">${mark}</span> ${esc(c.label)} <span class="iou">${note}</span></button>`;
-  }).join("");
-  $("#chips").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => select(+b.dataset.i)));
+/* --- model dropdown --- */
+function markFor(c) {
+  return c.truth ? '<span class="mark truth">◆</span>' : `<span class="mark ${c.success ? "ok" : "no"}">${c.success ? "✓" : "✗"}</span>`;
 }
+function drawModelMenu() {
+  const list = entries();
+  const c = list[picked];
+  $("#modelBtnText").innerHTML = `${markFor(c)} ${esc(c.label)}` +
+    (c.truth ? "" : ` <span class="iou" style="margin-left:8px">${c.iou_aligned == null ? "no solid" : "IoU " + c.iou_aligned.toFixed(3)}</span>`);
+  $("#modelMenu").innerHTML = list.map((e, i) =>
+    `<button data-i="${i}" class="${i === picked ? "on" : ""}">${markFor(e)} <span>${esc(e.label)}</span>
+      <span class="iou">${e.truth ? "ground truth" : e.iou_aligned == null ? "no solid" : "IoU " + e.iou_aligned.toFixed(3)}</span></button>`).join("");
+  $("#modelMenu").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => { closeMenu(); select(+b.dataset.i); }));
+}
+const closeMenu = () => ($("#modelMenu").hidden = true);
+$("#modelBtn").onclick = (e) => { e.stopPropagation(); $("#modelMenu").hidden = !$("#modelMenu").hidden; };
+document.addEventListener("click", (e) => { if (!e.target.closest(".dropdown")) closeMenu(); });
 
 async function select(i) {
   picked = i;
   const c = entries()[i];
-  drawChips();
+  drawModelMenu();
   stage.clear();
   const overlay = $("#overlay").checked;
   $("#stagehint").textContent = c.truth ? "the dataset's reference solid"
@@ -314,6 +387,7 @@ async function select(i) {
     : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B4482C">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
       ` · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} output tokens` +
       (c.mesh ? "" : " · " + esc((c.error || "did not build").slice(0, 70)));
+  $("#codeowner").textContent = `program · ${c.truth ? "dataset reference" : c.label}`;
   $("#stagecode").textContent = c.code || "";
   if (c.truth) { if (c.mesh) await stage.setPart(c.mesh, TRUTH); return; }
   if (c.mesh) await stage.setPart(c.mesh, c.ours ? OURS : RIVALS[0]);
@@ -323,7 +397,6 @@ async function select(i) {
 async function showPart(id) {
   $("#parts").value = id;
   $("#partnote").textContent = "building the solids…";
-  $("#chips").innerHTML = "";
   let res;
   try {
     res = await fetch(`/api/compare/${encodeURIComponent(id)}`);
@@ -341,22 +414,89 @@ async function showPart(id) {
   $("#partnote").textContent = "held out from training · answers replayed from the benchmark runs";
   const want = +(new URLSearchParams(location.search).get("model") ?? 1);
   await select(Math.max(0, Math.min(Number.isFinite(want) ? want : 1, entries().length - 1)));
+  if (!$("#drawer").hidden) drawList();
 }
 
+function step(delta) {
+  const ids = [...$("#parts").options].map((o) => o.value);
+  if (!ids.length) return;
+  const i = ids.indexOf($("#parts").value);
+  showPart(ids[(i + delta + ids.length) % ids.length]);
+}
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
 $("#parts").onchange = (e) => showPart(e.target.value);
-$("#onlywins").onchange = () => { fillParts(); showPart($("#parts").value || pickDefault()); };
 $("#overlay").onchange = () => select(picked);
 $("#spin").onchange = (e) => stage.spin(e.target.checked);
-$("#shuffle").onclick = () => {
-  const opts = [...$("#parts").options];
-  if (opts.length) showPart(opts[Math.floor(Math.random() * opts.length)].value);
-};
 $("#raceThis").onclick = () => {
   if (!DATA) return;
   useExample({ id: DATA.id, spec: DATA.spec, sheet: DATA.sheet, bbox: DATA.bbox, title: DATA.title });
   showTab("race");
   $("#go").click();
 };
+
+/* --- parts drawer: include or exclude parts, and see who got each one right --- */
+function shown() {
+  const q = $("#search").value.trim().toLowerCase();
+  return PARTS.filter((p) => {
+    if (q && !(p.title.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))) return false;
+    if (filter === "wins") return p.ours_correct && p.frontier_correct === 0;
+    if (filter === "missed") return !p.ours_correct;
+    if (filter === "hard") return p.tier === "medium" || p.tier === "complex" || p.tier === "multi-part";
+    return true;
+  });
+}
+
+function drawList() {
+  const list = shown();
+  const models = (PARTS.find((p) => p.results)?.results) || [];
+  $("#legend").innerHTML = "each row: " + models.map((r) =>
+    `<span class="dot na" style="margin:0 4px 0 8px"></span>${esc(r.label.replace(" (high)", "").replace("Cadabra 4B (ours)", "ours"))}`).join("");
+  $("#drawerCount").textContent = `${list.length} shown · ${included().length} included`;
+  $("#partlist").innerHTML = list.slice(0, 400).map((p) => `
+    <div class="row ${p.id === $("#parts").value ? "on" : ""}" data-id="${esc(p.id)}">
+      <input type="checkbox" ${EXCLUDED.has(p.id) ? "" : "checked"} data-cb="${esc(p.id)}" title="include in the part list">
+      <div style="min-width:0">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</div>
+        <div class="meta">${p.tier} · ${p.n_faces} faces${p.n_parts > 1 ? " · " + p.n_parts + " parts" : ""}</div>
+      </div>
+      <div class="marks">${(p.results || []).map((r) => `<span class="dot ${r.success ? "ok" : "no"}" title="${esc(r.label)}: ${r.success ? "correct" : "wrong"}${r.iou == null ? "" : " (IoU " + r.iou.toFixed(3) + ")"}"></span>`).join("")}</div>
+    </div>`).join("") + (list.length > 400 ? `<div class="label" style="padding:8px 10px">showing the first 400</div>` : "");
+  $("#partlist").querySelectorAll("[data-cb]").forEach((cb) => (cb.onclick = (e) => {
+    e.stopPropagation();
+    const id = cb.dataset.cb;
+    cb.checked ? EXCLUDED.delete(id) : EXCLUDED.add(id);
+    saveExcluded(); fillParts(); drawList();
+  }));
+  $("#partlist").querySelectorAll(".row").forEach((row) => (row.onclick = () => showPart(row.dataset.id)));
+}
+
+function openDrawer(open) {
+  $("#drawer").hidden = !open;
+  $("#backdrop").hidden = !open;
+  if (open) { drawList(); $("#search").focus(); }
+}
+$("#partsBtn").onclick = () => openDrawer($("#drawer").hidden);
+$("#drawerClose").onclick = () => openDrawer(false);
+$("#backdrop").onclick = () => openDrawer(false);
+$("#search").oninput = drawList;
+$("#filters").querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => {
+  filter = b.dataset.f;
+  $("#filters").querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b));
+  drawList();
+}));
+$("#selAll").onclick = () => { shown().forEach((p) => EXCLUDED.delete(p.id)); saveExcluded(); fillParts(); drawList(); };
+$("#selNone").onclick = () => {
+  shown().forEach((p) => EXCLUDED.add(p.id));
+  if (!included().length) EXCLUDED.delete(shown()[0]?.id);  // never empty the list
+  saveExcluded(); fillParts(); drawList();
+};
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { openDrawer(false); closeMenu(); }
+  if ($("#compare").hidden || $("#drawer").hidden === false || e.target.matches("input, select, textarea")) return;
+  if (e.key === "ArrowLeft") step(-1);
+  if (e.key === "ArrowRight") step(1);
+});
 
 /* ---------- live race ---------- */
 let CONFIG = null, EXAMPLES = [], currentExample = null;

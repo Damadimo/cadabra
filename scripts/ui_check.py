@@ -73,32 +73,41 @@ def main() -> None:
             check(f"{v:.4f}" in bbox_text, f"bounding box {v:.4f} shown", bbox_text)
         check(str(data["tier_faces"]) in bbox_text, "face count shown", bbox_text)
 
-        chips = page.query_selector_all("#chips .chip")
-        check(len(chips) == len(lanes) + 1, "one chip per model plus the reference", f"{len(chips)} chips, {len(lanes)} lanes")
+        page.click("#modelBtn")
+        page.wait_for_timeout(300)
+        items = page.query_selector_all("#modelMenu button")
+        check(len(items) == len(lanes) + 1, "the model menu lists every model plus the reference", f"{len(items)} items, {len(lanes)} lanes")
         for i, lane in enumerate(lanes):
-            text = chips[i + 1].inner_text()
+            text = items[i + 1].inner_text()
             if lane.get("iou_aligned") is not None:
-                check(f"{lane['iou_aligned']:.3f}" in text, f"chip IoU matches the API for {lane['label']}", text)
-            check(("✓" in text) == bool(lane["success"]), f"chip verdict matches for {lane['label']}", text)
+                check(f"{lane['iou_aligned']:.3f}" in text, f"menu IoU matches the API for {lane['label']}", text)
+            check(("✓" in text) == bool(lane["success"]), f"menu verdict matches for {lane['label']}", text)
+        page.keyboard.press("Escape")
 
-        # every chip: select it, confirm the stage draws and the stats match that answer
-        for i in range(len(chips)):
-            page.query_selector_all("#chips .chip")[i].click()
+        # every model: pick it from the menu, confirm the stage, stats and program follow
+        for i in range(len(lanes) + 1):
+            page.click("#modelBtn")
+            page.wait_for_timeout(250)
+            page.query_selector_all("#modelMenu button")[i].click()
             page.wait_for_timeout(900)
             stats = page.inner_text("#stagestats")
             code = page.locator("#stagecode").text_content() or ""
+            owner = page.inner_text("#codeowner")
             if i == 0:
                 check(canvas_has_content(page, "#stage"), "reference renders in the stage")
-                check(code.strip().startswith("import cadquery"), "reference code shown", code[:40])
+                check(code.strip().startswith("import cadquery"), "reference program shown", code[:40])
+                check("reference" in owner, "program panel names the reference", owner)
                 continue
             lane = lanes[i - 1]
+            check(lane["label"] in page.inner_text("#modelBtnText"), f"dropdown shows {lane['label']}", page.inner_text("#modelBtnText"))
             if lane.get("iou_aligned") is not None:
                 check(f"{lane['iou_aligned']:.3f}" in stats, f"stage IoU matches for {lane['label']}", stats)
             check(("correct" in stats) == bool(lane["success"]), f"stage verdict matches for {lane['label']}", stats)
             if lane.get("output_tokens") is not None:
                 check(str(lane["output_tokens"]) in stats, f"token count matches for {lane['label']}", stats)
             if lane.get("code"):
-                check(code.strip()[:60] == lane["code"].strip()[:60], f"code matches for {lane['label']}", code[:60])
+                check(code.strip()[:60] == lane["code"].strip()[:60], f"program matches for {lane['label']}", code[:60])
+                check(lane["label"] in owner, f"program panel names {lane['label']}", owner)
             if lane.get("mesh"):
                 check(canvas_has_content(page, "#stage"), f"answer renders for {lane['label']}")
 
@@ -114,22 +123,46 @@ def main() -> None:
         page.check("#spin")
 
         before = page.eval_on_selector("#parts", "e => e.value")
-        page.click("#shuffle")
-        page.wait_for_timeout(1500)
+        page.click("#next")
+        page.wait_for_timeout(1400)
         after = page.eval_on_selector("#parts", "e => e.value")
-        check(after != before or len(page.query_selector_all("#parts option")) == 1, "shuffle changes the part", f"{before} -> {after}")
-        check(page.inner_text("#stagestats").strip() != "", "stats redraw after shuffle")
+        check(after != before, "next moves to another part", f"{before} -> {after}")
+        page.click("#prev")
+        page.wait_for_timeout(1400)
+        check(page.eval_on_selector("#parts", "e => e.value") == before, "previous comes back")
+        check(page.inner_text("#stagestats").strip() != "", "stats redraw after moving")
+
+        print("\nparts drawer")
+        page.click("#partsBtn")
+        page.wait_for_timeout(600)
+        check(page.is_visible("#drawer"), "drawer opens")
+        parts = page.evaluate("fetch('/api/parts').then(r => r.json())")
+        rows = page.query_selector_all("#partlist .row")
+        check(len(rows) == min(len(parts), 400), "drawer lists the parts", f"{len(rows)} rows of {len(parts)}")
+        dots = page.query_selector_all("#partlist .row:first-child .dot")
+        check(len(dots) == len(parts[0]["results"]), "each row shows one mark per model", f"{len(dots)} dots")
+        page.click('#filters [data-f="wins"]')
+        page.wait_for_timeout(500)
+        expect = sum(1 for x in parts if x["ours_correct"] and x["frontier_correct"] == 0)
+        check(len(page.query_selector_all("#partlist .row")) == expect, "the 'only we get right' filter matches the data", f"expected {expect}")
+        page.fill("#search", "hex")
+        page.wait_for_timeout(400)
+        titles = [r.inner_text().lower() for r in page.query_selector_all("#partlist .row")]
+        check(all("hex" in t for t in titles) if titles else True, "search filters the list", str(titles[:2]))
+        page.fill("#search", "")
+        page.click('#filters [data-f="all"]')
+        page.wait_for_timeout(400)
 
         total = len(page.query_selector_all("#parts option"))
-        page.check("#onlywins")
-        page.wait_for_timeout(1500)
-        filtered = len(page.query_selector_all("#parts option"))
-        parts = page.evaluate("fetch('/api/parts').then(r => r.json())")
-        expect = sum(1 for x in parts if x["ours_correct"] and x["frontier_correct"] == 0)
-        check(filtered == expect, "filter keeps the parts only we get right", f"{filtered} shown, {expect} expected")
-        check(filtered < total, "filter actually narrows the list", f"{filtered} of {total}")
-        page.uncheck("#onlywins")
-        page.wait_for_timeout(1200)
+        page.query_selector_all("#partlist [data-cb]")[0].click()
+        page.wait_for_timeout(500)
+        check(len(page.query_selector_all("#parts option")) == total - 1, "unticking a part removes it from the picker")
+        page.query_selector_all("#partlist [data-cb]")[0].click()
+        page.wait_for_timeout(500)
+        check(len(page.query_selector_all("#parts option")) == total, "ticking it puts it back")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
+        check(not page.is_visible("#drawer"), "Escape closes the drawer")
 
         print("\nbenchmark table")
         sb = page.evaluate("fetch('/api/scoreboard').then(r => r.json())")
