@@ -97,6 +97,7 @@ def main() -> None:
     ap.add_argument("runs", nargs="*", type=Path)
     ap.add_argument("--latest", default="", help="comma-separated tags: use the newest run for each")
     ap.add_argument("--out-json", type=Path, help="also write the demo scoreboard (e.g. data/demo/scoreboard.json)")
+    ap.add_argument("--skip-lanes", default="glm-5.3@high", help="lanes left out of --out-json (default: GLM-5.3, a text-only model)")
     args = ap.parse_args()
     dirs = [d if d.is_absolute() else ROOT / d for d in args.runs]
     for tag in filter(None, args.latest.split(",")):
@@ -118,7 +119,8 @@ def main() -> None:
     if args.out_json:
         created = max(json.loads((d / "summary.json").read_text())["created"] for d in dirs)
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
-        args.out_json.write_text(json.dumps({"n": max(e["n"] for e in board), "created": created, "lanes": board}, indent=1))
+        shown = [e for e in board if e["lane"] not in set(args.skip_lanes.split(","))]
+        args.out_json.write_text(json.dumps({"n": max(e["n"] for e in shown), "created": created, "lanes": shown}, indent=1))
         print(f"wrote {args.out_json}")
 
 

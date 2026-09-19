@@ -2,7 +2,7 @@
 
   uv run uvicorn app.server:app --port 8000        # then open http://127.0.0.1:8000
 
-Lanes: RACE_LANES (default "specialist,moonshotai/Kimi-K3:high,zai-org/GLM-5.3:high"). Frontier lanes get the
+Lanes: RACE_LANES (default "specialist,moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high"). Frontier lanes get the
 same worked examples as in the benchmark; our model gets the zero-shot prompt it was trained on.
 """
 
@@ -51,7 +51,7 @@ REPLAYS = ROOT / "data" / "demo" / "replays"  # recorded races: offline fallback
 
 
 def race_lanes() -> list[Lane]:
-    return resolve_lanes(os.getenv("RACE_LANES", "specialist,moonshotai/Kimi-K3:high,zai-org/GLM-5.3:high"))
+    return resolve_lanes(os.getenv("RACE_LANES", "specialist,moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high"))
 
 
 @asynccontextmanager

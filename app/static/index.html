@@ -59,7 +59,7 @@
 <body>
 <header>
   <h1>Understudy-CAD</h1>
-  <span class="muted">A 4B model post-trained on a Baseten H100, racing frontier models from spec to solid. The geometry decides who wins.</span>
+  <span class="muted">A 4B model post-trained on a Baseten H100 reads engineering drawings into CAD code, racing frontier models. The geometry decides who wins.</span>
 </header>
 <main>
   <section class="top">
@@ -106,7 +106,15 @@ class Viewer {
   constructor(el, color) {
     this.el = el;
     this.color = color;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.part = null;
+    this.target = null;
+    try {
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {  // no WebGL (locked-down or GPU-less browser): keep the race, scores and code working
+      this.renderer = null;
+      el.insertAdjacentHTML("afterbegin", '<div class="muted" style="padding:12px">3D preview needs WebGL, which is off in this browser. Scores and code still work.</div>');
+      return;
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.prepend(this.renderer.domElement);
     this.scene = new THREE.Scene();
@@ -121,14 +129,13 @@ class Viewer {
     this.scene.add(key);
     this.group = new THREE.Group();
     this.scene.add(this.group);
-    this.part = null;
-    this.target = null;
     new ResizeObserver(() => this.resize()).observe(el);
     this.resize();
     const loop = () => { this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(loop); };
     loop();
   }
   resize() {
+    if (!this.renderer) return;
     const w = this.el.clientWidth || 300, h = this.el.clientHeight || 240;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
@@ -142,6 +149,7 @@ class Viewer {
   }
   drop(obj) { if (obj) { this.group.remove(obj); obj.geometry.dispose(); } }
   async setPart(key) {
+    if (!this.renderer) return;
     const g = await this.geometry(key);
     this.drop(this.part);
     this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: this.color, metalness: 0.15, roughness: 0.45, side: THREE.DoubleSide }));
@@ -149,6 +157,7 @@ class Viewer {
     this.fit();
   }
   async setTarget(key, solid = false) {
+    if (!this.renderer) return;
     const g = await this.geometry(key);
     this.drop(this.target);
     this.target = solid
@@ -157,8 +166,9 @@ class Viewer {
     this.group.add(this.target);
     this.fit();
   }
-  clear() { this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
+  clear() { if (!this.renderer) return; this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
   fit() {
+    if (!this.renderer) return;
     const box = new THREE.Box3().setFromObject(this.group);
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
@@ -230,10 +240,12 @@ function showInput() {
     : "Every model gets the same written spec. Pick a held-out part or write your own.";
   if (image && !(currentExample && currentExample.sheet)) {
     $("#sheet").removeAttribute("src");
+    $("#sheet").style.display = "none";
     $("#bboxline").textContent = "Pick a held-out part to see its drawing sheet.";
   }
   if (image && currentExample && currentExample.sheet) {
     $("#sheet").src = currentExample.sheet;
+    $("#sheet").style.display = "";
     const b = currentExample.bbox;
     $("#bboxline").textContent = b ? `Stated with the sheet: bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "";
   }
