@@ -27,6 +27,7 @@ training_runtime = Runtime(
         "GRAD_ACCUM": "2",  # effective batch 16
         "MAX_STEPS": "-1",  # "20" for a smoke run
         "SAVE_STEPS": "200",
+        "TIME_BUDGET_H": "0",  # e.g. "2.5" if the H100 is ours for 3 h: stops, saves and merges in time
         "MERGE_AT_END": "1",  # writes $BT_CHECKPOINT_DIR/merged for vLLM
     },
     cache_config=CacheConfig(enabled=True),  # persists /root/.cache (HF weights, pip) across jobs in this project

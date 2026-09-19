@@ -27,7 +27,7 @@ The job should log these lines before step 1:
 `loss on ... tokens of row 0, starting '```python\nimport cadquery'`.
 
 Knobs (env vars in `config_vlm.py`): `EPOCHS` (2), `LR` (2e-4), `BATCH` (8), `GRAD_ACCUM` (2), `MAX_STEPS` (-1),
-`SAVE_STEPS` (200, also the eval interval), `LORA_RANK` (64), `LORA_ALPHA` (32), `MAX_LEN` (6144), `IMAGE_PIXELS` (1048576),
+`SAVE_STEPS` (200, also the eval interval), `TIME_BUDGET_H` (0 = off; stops, saves and merges when the time is up), `LORA_RANK` (64), `LORA_ALPHA` (32), `MAX_LEN` (6144), `IMAGE_PIXELS` (1048576),
 `MERGE_AT_END` (1). Also `WARMUP_STEPS`, `LOG_STEPS`, `NUM_WORKERS`, `ATTN_IMPL` and `DATA_DIR`.
 
 ## Time and cost (estimate, not measured)

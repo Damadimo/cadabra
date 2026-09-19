@@ -20,13 +20,14 @@ Rows are converted at load time; the files on disk stay as written:
 import json
 import os
 import shutil
+import time
 
 import torch
 from datasets import Dataset, Image, List
 from huggingface_hub import snapshot_download
 from peft import LoraConfig
 from PIL import Image as PILImage
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, TrainerCallback
 from trl import SFTConfig, SFTTrainer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +40,9 @@ RANK = int(os.getenv("LORA_RANK", "16"))
 ALPHA = int(os.getenv("LORA_ALPHA", "32"))
 MAX_LEN = int(os.getenv("MAX_LEN", "6144"))  # ~1024 image + ~600 text tokens per row; far above any row
 SAVE_STEPS = int(os.getenv("SAVE_STEPS", "200"))
+# Wall-clock cap on the training loop (hours, 0 = none). When it runs out, training stops at the next step and the
+# final adapter + merged model are still written, so a fixed GPU window always ends with something deployable.
+TIME_BUDGET_H = float(os.getenv("TIME_BUDGET_H", "0"))
 CPU_DRY_RUN = os.getenv("CPU_DRY_RUN") == "1"  # local smoke test on a laptop; never set on Baseten
 MERGE_AT_END = os.getenv("MERGE_AT_END", "0" if CPU_DRY_RUN else "1") == "1"
 
@@ -207,6 +211,28 @@ args = SFTConfig(
     output_dir=OUTPUT_DIR,
 )
 
+class TimeBudget(TrainerCallback):
+    """Prints the projected run time after a few steps; stops training once TIME_BUDGET_H is spent."""
+
+    def __init__(self, hours: float):
+        self.hours, self.t0 = hours, None
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        self.t0 = time.time()
+
+    def on_step_end(self, args, state, control, **kwargs):
+        elapsed_h = (time.time() - self.t0) / 3600
+        if state.global_step == 20:
+            total_h = elapsed_h / 20 * state.max_steps
+            print(f"[time] {elapsed_h * 180:.1f} s/step over 20 steps -> {state.max_steps} steps take ~{total_h:.2f} h"
+                  + (f" (budget {self.hours} h: stops near step {int(self.hours / elapsed_h * 20)})" if self.hours and total_h > self.hours else ""), flush=True)
+        if self.hours and elapsed_h >= self.hours:
+            print(f"[time] budget of {self.hours} h reached at step {state.global_step}/{state.max_steps}: stopping and saving", flush=True)
+            control.should_training_stop = True
+            control.should_save = True
+        return control
+
+
 trainer = SFTTrainer(
     model=model,
     args=args,
@@ -214,6 +240,7 @@ trainer = SFTTrainer(
     eval_dataset=val,
     processing_class=processor,
     peft_config=peft_config,
+    callbacks=[TimeBudget(TIME_BUDGET_H)],
 )
 
 trainable = {n: p.numel() for n, p in trainer.model.named_parameters() if p.requires_grad}
