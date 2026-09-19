@@ -18,7 +18,7 @@ CAD-Coder (Apache-2.0) ─► audit: run ~83K reference programs  ─► clean s
 render every part as a drawing sheet: FRONT / TOP / RIGHT at one scale + isometric, bounding box as text
         │
         ▼
-Baseten Training (1× H100): LoRA SFT of Qwen3-VL-4B-Instruct on ~30K sheets -> CadQuery, loss on the code only
+Baseten Training (1× H100): LoRA SFT of Qwen3-VL-4B-Instruct on 30,260 sheets -> CadQuery, loss on the code only
         │
         ▼
 Baseten deployment: merged weights served by vLLM straight from the training checkpoint (bt:// weights)

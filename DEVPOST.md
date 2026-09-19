@@ -22,7 +22,7 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
 ## How we built it (on Baseten)
 - **Model APIs** for the frontier baselines (Kimi K3 and GLM-5.3 Flash, both vision models), at high reasoning effort
   and with two worked examples each. Our model gets none.
-- **Training Jobs on an H100**: LoRA SFT (rank 64) of Qwen3-VL-4B-Instruct on [~30k] rendered drawing sheets from
+- **Training Jobs on an H100**: LoRA SFT (rank 64) of Qwen3-VL-4B-Instruct on 30,260 rendered drawing sheets from
   CAD-Coder (Apache-2.0), weighted toward the medium and complex parts where frontier models fail. Adapters on the
   language model only, loss on the code only, 1,024 visual tokens per sheet.
 - **Deployment**: merged weights served by vLLM on Baseten straight from the training checkpoint (`bt://` weights);
