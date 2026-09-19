@@ -1,0 +1,21 @@
+14 workers ready
+
+== test: 7950 usable rows, audited in 16s
+  reference runs:        7931/7950 (99.8%)
+  single-part:           5644/7931 (71.2%)
+  single, identity xform:4387/5644
+  single, dims match:    1883/2190 checked (86.0%)
+  parts histogram (5=5+): {1: 5644, 2: 1403, 3: 577, 4: 172, 5: 135}
+  faces p50/p90: 8/18
+  top errors: [('the result has zero volume', 15), ('Standard_Failure: GC_MakeArcOfCircle::Value() - no result', 2), ('worker error: Standard_Failure: Bnd_Box is void', 1), ('import from scipy.spatial.transform is not allowed', 1)]
+
+== train_high: 8177 usable rows, audited in 11s
+  reference runs:        8169/8177 (99.9%)
+  single-part:           7417/8169 (90.8%)
+  single, identity xform:6587/7417
+  single, dims match:    3258/3336 checked (97.7%)
+  parts histogram (5=5+): {1: 7417, 2: 544, 3: 145, 4: 45, 5: 18}
+  faces p50/p90: 6/14
+  top errors: [('the result has zero volume', 7), ("SyntaxError: expected an indented block after 'if' statement", 1)]
+
+== overlap test vs train_high: source_id 0, identical code 12, identical spec 0

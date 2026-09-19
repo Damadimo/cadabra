@@ -167,7 +167,7 @@ async def stream_chat(
             result.e2e_s = time.perf_counter() - t0
             result.error = None
             break
-        except (openai.APIStatusError, openai.APIConnectionError) as e:
+        except openai.APIError as e:  # status errors, connection errors, and errors raised mid-stream
             status = getattr(e, "status_code", None)
             result.e2e_s = time.perf_counter() - t0
             result.error = f"{status or type(e).__name__}: {str(e)[:300]}"

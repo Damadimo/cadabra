@@ -15,3 +15,7 @@ training/data/
 truss_configs/
 checkpoints/
 .dryrun/
+
+# CAD data: raw downloads, audit cache and the large train split are rebuilt by scripts
+data/cad/train.jsonl
+runs/*.log
