@@ -4,6 +4,7 @@
 #   ./scripts/deploy_vlm.sh <training_job_id> [accelerator]                 # merged weights (end of training)
 #   ./scripts/deploy_vlm.sh <training_job_id> [accelerator] <checkpoint>    # base + LoRA from e.g. checkpoint-600
 #   accelerator: L4 (default) | H100_40GB | H100
+#   TEAM=22 ./scripts/deploy_vlm.sh ...   puts the model in our Hack the North team (next to the training checkpoints)
 #
 # Needs a payment method on the workspace (Baseten refuses model deploys without one) and the job's
 # $BT_CHECKPOINT_DIR/merged folder fully synced. Prints the .env lines for the benchmark and the race UI.
@@ -32,7 +33,7 @@ fi
 grep -n "bt://\|accelerator:" "$WORK/config.yaml"
 
 echo "== pushing (first deploy pulls ~9 GB of weights; allow 10-20 min)"
-baseten model push --dir "$WORK" --wait --deploy-timeout 45m
+baseten model push --dir "$WORK" --wait --deploy-timeout 45m ${TEAM:+--team "$TEAM"}  # TEAM=22: our event team
 
 MODEL_ID="$(baseten model list --output json | NAME="$NAME" python3 -c 'import json,os,sys; ms=[m for m in json.load(sys.stdin)["models"] if m.get("name")==os.environ["NAME"]]; print(ms[0]["id"] if ms else "")')"
 [ -n "$MODEL_ID" ] || { echo "could not find the model id: run 'baseten model list'"; exit 1; }
