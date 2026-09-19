@@ -234,7 +234,8 @@ async def race(req: RaceRequest) -> StreamingResponse:
             return
         await queue.put({"lane": lane.key, "type": "status", "text": f"checking {len(codes)} candidates against the drawing…"})
         sheet_file = str(image_path(req.example_id, IMAGES))
-        checks = await asyncio.gather(*(asyncio.to_thread(POOL.run, _fn="render_score", code=c, sheet_path=sheet_file) for c in codes))
+        bbox = SHEETS[req.example_id]["bbox"]
+        checks = await asyncio.gather(*(asyncio.to_thread(POOL.run, _fn="render_score", code=c, sheet_path=sheet_file, bbox=bbox) for c in codes))
         pick = max(range(len(codes)), key=lambda k: checks[k].get("render_score") or 0.0)
         res = await asyncio.to_thread(POOL.run, code=codes[pick], gold_code=gold, want_mesh=True, want_chamfer=bool(gold))
         payload = {"lane": lane.key, "type": "graded", "code": codes[pick], "runs": bool(res.get("runs")), "error": res.get("error"),

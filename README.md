@@ -59,8 +59,9 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 - **Bootstrap 95% CIs**, fixed seeds. If the API returns no answer at all (402, 5xx, dropped connection after
   retries) the row is left out and listed, never scored as a wrong answer.
 - **Best-of-N without an answer key.** Our lane may sample several programs and keep the one whose rendering best
-  matches the *input* sheet (render-and-compare, `understudy/cad/verify.py`). On 158 real frontier answers it
-  separates correct from wrong with AUC 0.951. Frontier lanes can use the same verifier (`--best-of`).
+  matches the *input* sheet and the stated bounding box (render-and-compare, `understudy/cad/verify.py`). On 689 real
+  frontier answers it separates correct from wrong with AUC 0.96, and among several answers for the same part it
+  picks a correct one 98% of the time (random: 76%). Frontier lanes can use the same verifier (`--best-of`).
 - **Cost includes the GPU.** Our $/1K parts is the GPU's hourly price amortized over measured throughput.
 
 ## Results

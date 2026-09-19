@@ -50,7 +50,8 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
   benchmark harness.
 
 ## Accomplishments
-- A verifier that needs no answer key: render-and-compare separates correct from wrong frontier answers with AUC 0.95.
+- A verifier that needs no answer key: render-and-compare separates correct from wrong frontier answers with AUC 0.96
+  (689 answers) and, given several answers for one part, picks a correct one 98% of the time.
 - [Our headline delta: e.g. "+X points over Kimi K3 on complex parts at 1/Y the cost"].
 - Every number reproducible from the repo: `scripts/audit_cadcoder.py`, `understudy/cad/bench.py`, `scripts/leaderboard.py`.
 

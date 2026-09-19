@@ -67,7 +67,8 @@ def image_inputs(rec: dict, index: dict) -> tuple[str, list[float]]:
     return prompts.data_url(image_path(rec["id"], IMAGES)), index[rec["id"]]["bbox"]
 
 
-async def best_of_n(lane: Lane, rec: dict, pool: CadPool, msgs: list[dict], n: int, max_tokens: int, temperature: float, slot: int) -> dict:
+async def best_of_n(lane: Lane, rec: dict, pool: CadPool, msgs: list[dict], n: int, max_tokens: int, temperature: float, slot: int,
+                    bbox: list[float] | None = None) -> dict:
     """Sample n programs, keep the one whose render best matches the INPUT sheet (render-and-compare), grade that one.
     Also grades every candidate against the answer key, only to report how often the best was available (oracle@n)."""
     from .render import image_path
@@ -80,7 +81,7 @@ async def best_of_n(lane: Lane, rec: dict, pool: CadPool, msgs: list[dict], n: i
     codes = [prompts.extract_code(c.content) if not c.error else None for c in calls]
     sheet = str(image_path(rec["id"], IMAGES))
     live = [(i, code) for i, code in enumerate(codes) if code]
-    checks = await asyncio.gather(*(asyncio.to_thread(pool.run, _fn="render_score", code=code, sheet_path=sheet) for _, code in live))
+    checks = await asyncio.gather(*(asyncio.to_thread(pool.run, _fn="render_score", code=code, sheet_path=sheet, bbox=bbox) for _, code in live))
     grades = await asyncio.gather(*(asyncio.to_thread(pool.run, code=code, gold_code=rec["gold_code"], want_chamfer=True) for _, code in live))
     if not live:
         return {"graded": {"runs": False, "error": "no candidate produced code"}, "code": None, "calls": calls, "extra": {"candidates": len(calls)}}
@@ -100,7 +101,7 @@ async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries
                 best_of: int = 1, temperature: float = 0.7) -> dict:
     if best_of > 1 and index is not None:
         image, bbox = image_inputs(rec, index)
-        out = await best_of_n(lane, rec, pool, prompts.image_messages(image, bbox, shots), best_of, max_tokens, temperature, slot)
+        out = await best_of_n(lane, rec, pool, prompts.image_messages(image, bbox, shots), best_of, max_tokens, temperature, slot, bbox)
         return row_for(lane, rec, out["graded"], out["code"], out["calls"], 1, out["extra"])
     if index is not None:
         image, bbox = image_inputs(rec, index)
