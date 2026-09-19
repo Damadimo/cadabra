@@ -6,45 +6,58 @@
 <title>Cadabra</title>
 <style>
   :root {
-    --bg: #F5F8F4; --surface: #FFFFFF; --inset: #F0F5EE; --line: #E1EADD; --line-2: #B9C6B3;
-    --ink: #1B1F1C; --muted: #5F6F62; --accent: #19E76E; --accent-deep: #00B86B; --pink: #FFA9FD;
-    --bad: #C1553B; --sage: #A4B09F;
+    --green: #19E76E; --green-deep: #00B86B; --green-dark: #06331D;
+    --card: #FFFFFF; --inset: #F2FBF5; --line: #CDEBD9; --line-2: #A7DCBE;
+    --ink: #06210F; --muted: #4C6B58; --pink: #FFA9FD; --bad: #B03A24;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 16px 28px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--surface); }
+  body { margin: 0; background: var(--green); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 28px 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   h1 { margin: 0; font-size: 19px; letter-spacing: -.01em; }
-  h1 .dot { color: var(--accent-deep); }
+  .tag { color: var(--green-dark); opacity: .85; }
   .muted { color: var(--muted); }
   nav { margin-left: auto; display: flex; gap: 6px; }
-  nav button { background: transparent; border: 1px solid transparent; color: var(--muted); border-radius: 999px; padding: 6px 14px; }
-  nav button.on { background: var(--inset); border-color: var(--line); color: var(--ink); font-weight: 600; }
+  nav button { background: rgba(255,255,255,.4); border: 1px solid rgba(6,51,29,.16); color: var(--green-dark); border-radius: 999px; padding: 7px 16px; }
+  nav button.on { background: var(--card); border-color: var(--card); color: var(--ink); font-weight: 650; }
   main { padding: 20px 28px 48px; display: grid; gap: 18px; max-width: 1500px; }
   .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  select, button, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; }
+  select, button, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line-2); border-radius: 9px; padding: 8px 12px; }
   button { cursor: pointer; }
   button:hover { border-color: var(--accent-deep); }
-  button.primary { background: var(--accent); border-color: var(--accent-deep); font-weight: 600; }
+  button.primary { background: var(--green-dark); border-color: var(--green-dark); color: #E9FFF2; font-weight: 600; }
   button:disabled { opacity: .55; cursor: default; }
   textarea { width: 100%; min-height: 120px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
   label.check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; box-shadow: 0 1px 2px rgba(6,51,29,.06); }
   .card h2, .card h3 { margin: 0; font-size: 14px; }
   .split { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 16px; align-items: start; }
   @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
   .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: block; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
   .cards .card { display: grid; gap: 8px; align-content: start; border-top: 3px solid var(--line-2); }
-  .card.ours { border-top-color: var(--accent); }
+  .cards .card.ours { border-top-color: var(--green); }
   .card.truth { border-top-color: var(--pink); }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .head h3 { line-height: 1.3; }
-  .viewer { height: 210px; border-radius: 8px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--inset); border-radius: 999px; padding: 7px 14px; font-size: 13px; color: var(--ink); }
+  .chip .mark { font-weight: 700; }
+  .chip.ok .mark { color: var(--green-deep); }
+  .chip.no .mark { color: var(--bad); }
+  .chip.truth { border-color: var(--pink); }
+  .chip.on { background: var(--green-dark); border-color: var(--green-dark); color: #EAFFF2; }
+  .chip.on .mark { color: #9CF3C2; }
+  .chip.on.no .mark { color: #FFB7A3; }
+  .chip .iou { font-variant-numeric: tabular-nums; opacity: .75; font-size: 12px; }
+  .stage { height: 460px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 12px; }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage .hint { position: absolute; left: 10px; bottom: 8px; font-size: 11.5px; color: var(--muted); pointer-events: none; }
+  .viewer { height: 190px; border-radius: 8px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
   .viewer canvas { display: block; width: 100%; height: 100%; }
   .viewer .hint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; color: var(--muted); pointer-events: none; }
   .pill { display: inline-block; white-space: nowrap; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); background: var(--inset); }
-  .pill.ok { color: #0a6b3d; border-color: var(--accent-deep); background: #E8FBF0; }
-  .pill.no { color: var(--bad); border-color: #E7C3B8; background: #FBF0ED; }
+  .pill.ok { color: #06682F; border-color: var(--green-deep); background: #E4FCEE; }
+  .pill.no { color: var(--bad); border-color: #E8C4B9; background: #FDF1EE; }
   .stats { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .slug { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); overflow-wrap: anywhere; }
   .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -57,15 +70,15 @@
   th, td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
   th { color: var(--muted); font-weight: 500; }
-  tr.ours td { background: #F3FDF7; font-weight: 600; }
+  tr.ours td { background: #EFFDF4; font-weight: 600; }
   .scroll { overflow-x: auto; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Cadabra<span class="dot">.</span></h1>
-  <span class="muted">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program. The geometry decides who is right.</span>
+  <h1>Cadabra</h1>
+  <span class="tag">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program. The geometry decides who is right.</span>
   <nav>
     <button id="tab-compare" class="on">Compare</button>
     <button id="tab-race">Live race</button>
@@ -77,8 +90,8 @@
     <div class="bar">
       <select id="parts"></select>
       <label class="check"><input type="checkbox" id="onlywins"> only parts both frontier models get wrong</label>
-      <label class="check"><input type="checkbox" id="single"> show our single-sample answer</label>
       <button id="shuffle">Shuffle</button>
+      <button id="raceThis">Race this part live ▶</button>
       <span class="muted" id="partnote"></span>
     </div>
     <div class="split" style="margin-top:14px">
@@ -87,13 +100,22 @@
         <div class="muted" style="font-size:12px;margin:4px 0 8px" id="bboxline"></div>
         <img id="sheet" alt="drawing sheet">
       </div>
-      <div class="cards" id="results"></div>
+      <div class="card">
+        <div class="chips" id="chips"></div>
+        <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
+        <div class="bar" style="margin-top:10px">
+          <label class="check"><input type="checkbox" id="overlay" checked> overlay the reference solid</label>
+          <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
+          <span class="stats" id="stagestats"></span>
+        </div>
+        <details style="margin-top:8px"><summary>code</summary><pre id="stagecode"></pre></details>
+      </div>
     </div>
   </section>
 
   <section id="race" class="card" hidden>
     <div class="bar">
-      <select id="examples"><option value="">Held-out part…</option></select>
+      <select id="examples"></select>
       <select id="modality"><option value="image">Input: drawing sheet</option><option value="text">Input: written spec</option></select>
       <button id="go" class="primary">Run ▶</button>
       <span class="muted" id="note"></span>
@@ -127,7 +149,7 @@ const num = (x, d = 1) => (x == null ? "–" : Number(x).toFixed(d));
 const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
 const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)));
 const loader = new STLLoader();
-const OURS = 0x19e76e, TRUTH = 0xa4b09f, RIVALS = [0x7f8f9a, 0xb0b8ae, 0x8aa0b8];
+const OURS = 0x10b85a, TRUTH = 0x8a9a8e, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
 
 class Viewer {
   constructor(el, color) {
@@ -179,16 +201,24 @@ class Viewer {
     this.group.add(this.part);
     this.fit();
   }
-  async setTarget(key, solid = false) {
+  /* mode: "ghost" (translucent reference over the prediction), "edges", "solid", or null to remove */
+  async setTarget(key, mode = "edges") {
     if (!this.renderer) return;
+    this.drop(this.target); this.target = null;
+    if (!key || !mode) { this.fit(); return; }
     const g = await this.geometry(key);
-    this.drop(this.target);
-    this.target = solid
-      ? new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: TRUTH, metalness: 0.05, roughness: 0.6 }))
-      : new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0x6b7a6e, transparent: true, opacity: 0.55 }));
+    if (mode === "edges") {
+      this.target = new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0x51695a, transparent: true, opacity: 0.6 }));
+    } else {
+      this.target = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+        color: TRUTH, metalness: 0.05, roughness: 0.65, transparent: mode === "ghost", opacity: mode === "ghost" ? 0.34 : 1,
+        depthWrite: mode !== "ghost", side: THREE.DoubleSide,
+      }));
+    }
     this.group.add(this.target);
     this.fit();
   }
+  spin(on) { if (this.controls) this.controls.autoRotate = on; }
   clear() { if (!this.renderer) return; this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
   fit() {
     if (!this.renderer) return;
@@ -210,17 +240,18 @@ function showTab(name) {
     $("#" + other).hidden = other !== name;
     $("#tab-" + other).classList.toggle("on", other === name);
   }
-  Object.values(compareViewers).concat(Object.values(viewers)).forEach((v) => v.resize());
+  [stage, targetViewer, ...Object.values(viewers)].forEach((v) => v && v.resize());
 }
 for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTab(name);
 
-/* ---------- compare: saved answers, built and shown side by side ---------- */
-let PARTS = [], compareViewers = {};
+/* ---------- compare: one stage, chips pick whose answer it shows ---------- */
+let PARTS = [], DATA = null, picked = 1;
+const stage = new Viewer($("#stage"), OURS);
 
 async function loadParts() {
   PARTS = await (await fetch("/api/parts")).json();
   fillParts();
-  if (PARTS.length) showPart(new URLSearchParams(location.search).get("part") || pickDefault());
+  if (PARTS.length) await showPart(new URLSearchParams(location.search).get("part") || pickDefault());
 }
 
 function fillParts() {
@@ -239,45 +270,66 @@ function pickDefault() {
   return (wins[0] || PARTS[0]).id;
 }
 
+function entries() {
+  return [{ ...DATA.reference, truth: true, label: "Reference (dataset)" }, ...DATA.lanes];
+}
+
+function drawChips() {
+  $("#chips").innerHTML = entries().map((c, i) => {
+    const state = c.truth ? "truth" : c.success ? "ok" : "no";
+    const mark = c.truth ? "◆" : c.success ? "✓" : "✗";
+    const note = c.truth ? "ground truth" : c.iou_aligned == null ? "no solid" : "IoU " + c.iou_aligned.toFixed(3);
+    return `<button class="chip ${state} ${i === picked ? "on" : ""}" data-i="${i}">
+      <span class="mark">${mark}</span> ${esc(c.label)} <span class="iou">${note}</span></button>`;
+  }).join("");
+  $("#chips").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => select(+b.dataset.i)));
+}
+
+async function select(i) {
+  picked = i;
+  const c = entries()[i];
+  drawChips();
+  stage.clear();
+  const overlay = $("#overlay").checked;
+  $("#stagehint").textContent = c.truth ? "the dataset's reference solid"
+    : overlay ? "prediction (solid) with the reference ghosted over it" : "prediction only";
+  $("#stagestats").innerHTML = c.truth
+    ? `${c.stats ? c.stats.n_faces + " faces · the answer every model is scored against" : ""}`
+    : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B03A24">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
+      ` · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} tokens` +
+      (c.mesh ? "" : " · " + esc((c.error || "did not build").slice(0, 70)));
+  $("#stagecode").textContent = c.code || "";
+  if (c.truth) { if (c.mesh) await stage.setPart(c.mesh, TRUTH); return; }
+  if (c.mesh) await stage.setPart(c.mesh, c.ours ? OURS : RIVALS[0]);
+  if (overlay && DATA.reference.mesh) await stage.setTarget(DATA.reference.mesh, c.mesh ? "ghost" : "solid");
+}
+
 async function showPart(id) {
   $("#parts").value = id;
   $("#partnote").textContent = "building…";
-  const d = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
-  $("#sheet").src = d.sheet;
-  const b = d.bbox;
-  $("#bboxline").textContent = `${d.title} · ${d.tier_faces} faces${d.n_parts > 1 ? ", " + d.n_parts + " parts" : ""}` +
+  DATA = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
+  $("#sheet").src = DATA.sheet;
+  const b = DATA.bbox;
+  $("#bboxline").textContent = `${DATA.title} · ${DATA.tier_faces} faces${DATA.n_parts > 1 ? ", " + DATA.n_parts + " parts" : ""}` +
     (b ? ` · bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "");
   $("#partnote").textContent = "answers from the saved benchmark runs";
-  compareViewers = {};
-  const lanes = d.lanes.filter((l) => !(l.ours && l.best_of === 1) || $("#single").checked);
-  const cards = [{ ...d.reference, key: "reference", truth: true }, ...lanes];
-  $("#results").innerHTML = cards.map((c, i) => `
-    <div class="card ${c.truth ? "truth" : c.ours ? "ours" : ""}">
-      <div class="head"><h3>${esc(c.label)}</h3>${c.truth ? '<span class="pill">ground truth</span>'
-        : `<span class="pill ${c.success ? "ok" : "no"}">${c.success ? "✓ correct" : "✗ wrong"}</span>`}</div>
-      <div class="slug">${esc(c.model || "dataset reference program")}</div>
-      <div class="viewer" data-v="${i}">${c.truth ? '<span class="hint">reference solid</span>' : '<span class="hint">prediction over reference (edges)</span>'}</div>
-      <div class="stats">${c.truth ? `${c.stats ? c.stats.n_faces + " faces" : ""}`
-        : `IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)} · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} tok`}</div>
-      ${c.truth || c.mesh ? "" : `<div class="stats">${esc((c.error || "did not build").slice(0, 90))}</div>`}
-      <details><summary>code</summary><pre>${esc(c.code || "")}</pre></details>
-    </div>`).join("");
-  $("#results").querySelectorAll("[data-v]").forEach((el, i) => {
-    const c = cards[i];
-    const v = new Viewer(el, c.truth ? TRUTH : c.ours ? OURS : RIVALS[i % RIVALS.length]);
-    compareViewers[i] = v;
-    if (c.truth) { if (c.mesh) v.setPart(c.mesh, TRUTH); return; }
-    if (d.reference.mesh) v.setTarget(d.reference.mesh);
-    if (c.mesh) v.setPart(c.mesh);
-  });
+  const want = +(new URLSearchParams(location.search).get("model") ?? 1);
+  await select(Math.max(0, Math.min(Number.isFinite(want) ? want : 1, entries().length - 1)));
 }
 
 $("#parts").onchange = (e) => showPart(e.target.value);
-$("#single").onchange = () => showPart($("#parts").value);
 $("#onlywins").onchange = () => { fillParts(); showPart($("#parts").value || pickDefault()); };
+$("#overlay").onchange = () => select(picked);
+$("#spin").onchange = (e) => stage.spin(e.target.checked);
 $("#shuffle").onclick = () => {
   const opts = [...$("#parts").options];
   if (opts.length) showPart(opts[Math.floor(Math.random() * opts.length)].value);
+};
+$("#raceThis").onclick = () => {
+  if (!DATA) return;
+  useExample({ id: DATA.id, spec: DATA.spec, sheet: DATA.sheet, bbox: DATA.bbox, title: DATA.title });
+  showTab("race");
+  $("#go").click();
 };
 
 /* ---------- live race ---------- */
@@ -329,17 +381,26 @@ function showInput() {
   }
 }
 $("#modality").onchange = showInput;
-$("#examples").onchange = (e) => {
-  currentExample = EXAMPLES[e.target.value] || null;
-  if (currentExample) $("#spec").value = currentExample.spec;
+function useExample(x) {
+  currentExample = x;
+  if (![...$("#examples").options].some((o) => o.value === x.id)) {
+    $("#examples").add(new Option(x.title || x.id, x.id));
+    EXAMPLES.push(x);
+  }
+  $("#examples").value = x.id;
+  if (x.spec) $("#spec").value = x.spec;
   showInput();
+}
+$("#examples").onchange = (e) => {
+  const x = EXAMPLES.find((y) => y.id === e.target.value);
+  if (x) useExample(x);
 };
 
 async function handle(ev, state) {
   if (ev.type === "target") {
-    await targetViewer.setTarget(ev.mesh, true);
+    await targetViewer.setTarget(ev.mesh, "solid");
     $("#tstats").textContent = `· ${ev.stats.n_faces} faces`;
-    for (const k in viewers) viewers[k].setTarget(ev.mesh);
+    for (const k in viewers) viewers[k].setTarget(ev.mesh, "edges");
     return;
   }
   const s = state[ev.lane];
@@ -389,7 +450,7 @@ $("#go").onclick = async () => {
   const spec = $("#spec").value.trim();
   const image = $("#modality").value === "image";
   if (image && !(currentExample && currentExample.sheet)) { $("#note").textContent = "Pick a held-out part first."; return; }
-  if (!image && !spec) return;
+  if (!image && !spec) { $("#note").textContent = "Write a spec first."; return; }
   const state = {};
   targetViewer.clear();
   $("#tstats").textContent = "";
@@ -402,6 +463,7 @@ $("#go").onclick = async () => {
     viewers[l.key].clear();
   }
   $("#go").disabled = true;
+  $("#note").textContent = "racing…";
   const clock = setInterval(() => {
     for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000).toFixed(1));
   }, 100);
@@ -410,6 +472,7 @@ $("#go").onclick = async () => {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null, modality: $("#modality").value }),
     });
+    if (!res.ok) { $("#note").textContent = "race failed: " + (await res.text()).slice(0, 120); return; }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
@@ -424,6 +487,7 @@ $("#go").onclick = async () => {
         if (chunk.startsWith("data: ")) await handle(JSON.parse(chunk.slice(6)), state);
       }
     }
+    $("#note").textContent = "done";
   } finally {
     clearInterval(clock);
     $("#go").disabled = false;
@@ -453,9 +517,8 @@ CONFIG = await (await fetch("/api/config")).json();
 $("#modality").value = CONFIG.default_modality || "image";
 buildLanes(CONFIG.lanes);
 EXAMPLES = await (await fetch("/api/examples")).json();
-EXAMPLES.forEach((e, i) => $("#examples").insertAdjacentHTML("beforeend",
-  `<option value="${i}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`));
-showInput();
+$("#examples").innerHTML = EXAMPLES.map((e) => `<option value="${esc(e.id)}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`).join("");
+if (EXAMPLES.length) useExample(EXAMPLES[0]); else showInput();
 await loadParts();
 loadScoreboard();
 if (new URLSearchParams(location.search).get("tab") === "race") showTab("race");
