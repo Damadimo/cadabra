@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import random
 import time
 from datetime import datetime
@@ -57,8 +58,21 @@ def sample(records: list[dict], n: int | None, seed: int) -> list[dict]:
     return sorted(rng.sample(multi, min(k_multi, len(multi))) + rng.sample(single, n - min(k_multi, len(multi))), key=lambda r: r["id"])
 
 
-async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries: int, max_tokens: int, slot: int) -> dict:
-    msgs = prompts.messages(rec["spec"], shots)
+IMAGES = DATA / "img"
+
+
+def image_inputs(rec: dict, index: dict) -> tuple[str, list[float]]:
+    from .render import image_path
+
+    return prompts.data_url(image_path(rec["id"], IMAGES)), index[rec["id"]]["bbox"]
+
+
+async def solve(lane: Lane, rec: dict, pool: CadPool, shots: list[dict], retries: int, max_tokens: int, slot: int, index: dict | None = None) -> dict:
+    if index is not None:
+        image, bbox = image_inputs(rec, index)
+        msgs = prompts.image_messages(image, bbox, shots)
+    else:
+        msgs = prompts.messages(rec["spec"], shots)
     attempts, calls = 0, []
     graded: dict = {"runs": False, "error": "no attempt"}
     code = None
@@ -166,7 +180,7 @@ def _f(x, d=2):
 
 def markdown(summaries: list[dict], meta: dict) -> str:
     lines = [
-        f"`{meta['data']}` · {meta['n']} held-out specs · shots {meta['shots']} · retries {meta['retries']} · {meta['created']}",
+        f"`{meta['data']}` · {meta['n']} held-out {'drawing sheets' if meta.get('modality') == 'image' else 'specs'} · shots {meta['shots']} · retries {meta['retries']} · {meta['created']}",
         "",
         "| Lane | Model (effort) | Success (IoU ≥ 0.9) [95% CI] | IoU ≥ 0.95 | Runs | Mean IoU | Median Chamfer | Single / multi-part | Latency p50 / p95 (s) | Out tokens | $ / 1K parts |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
@@ -184,11 +198,20 @@ def markdown(summaries: list[dict], meta: dict) -> str:
 
 
 async def run(args) -> None:
+    os.environ["LLM_TIMEOUT"] = str(args.timeout)
     records = read_jsonl(args.data)
+    index = None
+    if args.modality == "image":
+        index = json.loads((IMAGES / "index.json").read_text())
+        records = [r for r in records if r["id"] in index]
     if args.multi_only:
         records = [r for r in records if r["n_parts"] > 1]
+    if args.min_faces:
+        records = [r for r in records if (r.get("n_faces") or 0) >= args.min_faces]
     records = sample(records, args.n, args.seed)
     shots = read_jsonl(DATA / "shots.jsonl")[: args.shots] if args.shots else []
+    if args.modality == "image" and shots:
+        shots = [{"image": image_inputs(s, index)[0], "bbox": index[s["id"]]["bbox"], "gold_code": s["gold_code"]} for s in shots]
     lanes = resolve_lanes(args.lanes)
     created = datetime.now()
     out_dir = ROOT / "runs" / f"{created:%Y%m%d-%H%M%S}_{args.tag}"
@@ -203,7 +226,7 @@ async def run(args) -> None:
                 nonlocal done
                 async with sem:
                     lane_shots = [] if (lane.dedicated and not args.shots_for_ours) else shots
-                    row = await solve(lane, rec, pool, lane_shots, args.retries, args.max_tokens if not lane.dedicated else 2048, i)
+                    row = await solve(lane, rec, pool, lane_shots, args.retries, args.max_tokens if not lane.dedicated else 2048, i, index)
                 done += 1
                 if done % 10 == 0 or done == len(records):
                     print(f"  {lane.key}: {done}/{len(records)}", flush=True)
@@ -221,6 +244,7 @@ async def run(args) -> None:
         "n": len(records),
         "shots": args.shots,
         "retries": args.retries,
+        "modality": args.modality,
         "created": created.isoformat(timespec="seconds"),
     }
     write_jsonl(out_dir / "results.jsonl", rows)
@@ -242,7 +266,9 @@ def main() -> None:
     ap.add_argument("--max-tokens", type=int, default=16384)
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--modality", choices=["text", "image"], default="text", help="text specs, or rendered drawing sheets")
     ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
+    ap.add_argument("--min-faces", type=int, default=0, help="only parts with at least this many faces")
     ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
     ap.add_argument("--tag", default="bench")
     asyncio.run(run(ap.parse_args()))

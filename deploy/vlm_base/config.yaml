@@ -1,0 +1,62 @@
+# Untuned Qwen3-VL-4B-Instruct on vLLM (OpenAI-compatible, image input). Baseline lane + smoke test.
+#   baseten model push --dir deploy/vlm_base --wait
+# Endpoint: https://model-<model_id>.api.baseten.co/environments/production/sync/v1   model="Qwen/Qwen3-VL-4B-Instruct"
+# Based on docs.baseten.co/examples/vllm (vLLM v0.29.0 on L4) and /examples/models/llm/qwen3-vl.
+model_name: understudy-vlm-base
+model_metadata:
+  example_model_input:
+    model: Qwen/Qwen3-VL-4B-Instruct
+    messages:
+      - role: user
+        content:
+          - type: image_url
+            image_url:
+              url: "https://picsum.photos/id/237/200/300"
+          - type: text
+            text: "Describe this image."
+    stream: true
+    max_tokens: 256
+  tags:
+    - openai-compatible
+base_image:
+  # -cu129 build: CUDA 12.9 runs on older and newer host drivers alike (the plain tag is CUDA 13).
+  image: vllm/vllm-openai:v0.29.0-cu129
+weights:
+  # BDN mirrors the repo at push time and mounts it read-only before the container starts.
+  - source: "hf://Qwen/Qwen3-VL-4B-Instruct@ebb281ec70b05090aa6165b016eac8ec08e71b17"
+    mount_location: "/models/qwen3-vl-4b"
+    auth:
+      auth_method: CUSTOM_SECRET
+      auth_secret_name: "hf_access_token"
+    ignore_patterns: ["*.md", ".gitattributes"]
+secrets:
+  hf_access_token: null
+environment_variables:
+  VLLM_LOGGING_LEVEL: INFO
+docker_server:
+  start_command: >-
+    vllm serve /models/qwen3-vl-4b
+    --served-model-name Qwen/Qwen3-VL-4B-Instruct
+    --host 0.0.0.0
+    --port 8000
+    --dtype bfloat16
+    --max-model-len 8192
+    --max-num-seqs 32
+    --gpu-memory-utilization 0.90
+    --limit-mm-per-prompt.image 4
+    --limit-mm-per-prompt.video 0
+    --enable-prefix-caching
+  readiness_endpoint: /health
+  liveness_endpoint: /health
+  predict_endpoint: /v1/chat/completions
+  server_port: 8000
+resources:
+  # L4:4x16 = 1x L4 24 GB, 4 vCPU, 16 GiB RAM, $0.85/h. For the live demo use H100MIG ($3.75/h) or H100 ($6.50/h).
+  accelerator: L4
+  use_gpu: true
+runtime:
+  predict_concurrency: 32
+  health_checks:
+    startup_threshold_seconds: 1800
+    restart_threshold_seconds: 600
+    stop_traffic_threshold_seconds: 120

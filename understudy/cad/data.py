@@ -69,7 +69,9 @@ def parse_spec(spec: str) -> dict:
     widths = [float(m.group(1)) for m in _DIM["width"].finditer(spec)]
     heights = [float(m.group(1)) for m in _DIM["height"].finditer(spec)]
     dims = list(zip(lengths, widths, heights))
-    n_parts = max(1, len(re.findall(r"new coordinate system", spec, re.I)))
+    systems = len(re.findall(r"\b(?:new|another|second|third|fourth|fifth|sixth) (?:local )?coordinate system", spec, re.I))
+    ordinals = set(re.findall(r"\b(first|second|third|fourth|fifth|sixth|seventh|eighth) part\b", spec, re.I))
+    n_parts = max(1, systems, len(ordinals))
     return {"n_parts": n_parts, "stated_dims": dims, "identity_transforms": identity, "eulers": eulers, "translations": translations}
 
 
@@ -97,6 +99,25 @@ def load_split(split: str, limit: int | None = None) -> list[dict]:
             }
         )
     return out
+
+
+_LIT = re.compile(r"(?<![\w.])-?\d+\.\d+|(?<![\w.])-?\d+(?![\w.])")
+
+
+def _numbers(text: str) -> set[float]:
+    return {round(abs(float(x)), 4) for x in _LIT.findall(text)}
+
+
+def spec_coverage(spec: str, code: str) -> float:
+    """Share of the reference code's non-trivial numbers that the spec states (a well-posedness check:
+    if the answer uses numbers the spec never gives, the spec can't determine the part)."""
+    trivial = {0.0, 1.0, 2.0, 90.0, 180.0, 270.0, 360.0}
+    needed = {x for x in _numbers(code) if x not in trivial}
+    if not needed:
+        return 1.0
+    given = _numbers(spec)
+    tol = lambda a: any(abs(a - b) <= max(1e-4, 0.002 * abs(a)) for b in given)  # noqa: E731
+    return sum(1 for x in needed if tol(x)) / len(needed)
 
 
 def normalized_code(code: str) -> str:
