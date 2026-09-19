@@ -35,6 +35,7 @@ Two things only you can unblock:
 | 2. Smoke run (20 steps) | set `MAX_STEPS=20` in `training/vlm/config_vlm.py`; `cd training/vlm && baseten train push --config config_vlm.py` | ~10 min |
 | 3. Full run | set `MAX_STEPS=-1`; push again; `baseten train job logs --job-id <id> --tail` | ~1.5–2 h |
 | 4. Deploy | `./scripts/deploy_vlm.sh <job_id> H100_40GB` (prints the .env lines) | 10–20 min |
+| 4b. If the job stops early or `merged` is missing | `./scripts/deploy_vlm.sh <job_id> H100_40GB checkpoint-<N>` (base + LoRA, also serves the base lane) | 10–20 min |
 | 5. Benchmark ours | `uv run python -m understudy.cad.bench --modality image --lanes specialist --n 500 --shots 0 --concurrency 16 --tag ours-img` | ~10 min |
 | 6. Compare | `uv run python scripts/leaderboard.py --latest sota-img,ours-img` | instant |
 | 7. Record demo races | race UI with `record: true` on 3–4 parts (replays are the offline fallback) | 15 min |

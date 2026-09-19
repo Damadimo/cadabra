@@ -21,6 +21,7 @@ Because nothing deployed, the image test, latency and cold start below are **not
 |---|---|
 | `vlm_base/config.yaml` | Untuned `Qwen/Qwen3-VL-4B-Instruct` from Hugging Face (pinned commit, BDN-mirrored), vLLM `v0.29.0-cu129`, L4 |
 | `vlm_ft/config.yaml` | Our merged fine-tune from a Baseten Training checkpoint (`bt://` weights). Placeholders: `TRAINING_PROJECT_NAME`, `TRAINING_JOB_ID` |
+| `vlm_lora/config.yaml` | Base model + our LoRA adapter from any checkpoint (e.g. `checkpoint-600` if the job is stopped early). Serves both `Qwen/Qwen3-VL-4B-Instruct` (base lane) and `understudy-cad-vl` (ours) on one endpoint. `./scripts/deploy_vlm.sh <job_id> <gpu> <checkpoint>` fills it |
 | `test_vlm.py` | Streams one chat completion with a base64 PNG and prints TTFT, total latency and tok/s |
 
 ## Push
@@ -74,15 +75,11 @@ vLLM v0.29.0 (`vllm/model_executor/models/qwen3_vl.py`): `Qwen3VLForConditionalG
 or merger need `--enable-tower-connector-lora` (`supports_tower_connector_lora = True`). One deployment can serve base
 and fine-tune side by side, which fits the current `base-4b` / `specialist` lanes:
 
-```yaml
-weights:
-  - {source: "hf://Qwen/Qwen3-VL-4B-Instruct@ebb281ec70b05090aa6165b016eac8ec08e71b17", mount_location: /models/qwen3-vl-4b}
-  - {source: "bt://<project>@<job_id>/<checkpoint>", mount_location: /models/adapter}
-# start_command: vllm serve /models/qwen3-vl-4b --served-model-name Qwen/Qwen3-VL-4B-Instruct
-#   --enable-lora --max-lora-rank 16 --lora-modules understudy-cad-vl=/models/adapter  ...same flags as vlm_base
-```
+`vlm_lora/config.yaml` does this: base weights from the pinned HF commit at `/models/qwen3-vl-4b`, the adapter from
+`bt://understudy-cad-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 16
+--lora-modules understudy-cad-vl=<folder holding adapter_config.json>`. Our adapters only touch the language model.
 
-This is untested. LoRA adds per-token overhead compared with merged weights. `baseten train checkpoint deploy` only
+Not yet run on Baseten (deploys are blocked). LoRA adds per-token overhead compared with merged weights. `baseten train checkpoint deploy` only
 deploys LoRA checkpoints and is documented for LLMs, so write the config by hand for the VLM.
 
 ## Gotchas
