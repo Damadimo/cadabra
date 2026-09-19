@@ -110,7 +110,10 @@ def index() -> FileResponse:
 
 @app.get("/api/config")
 def config() -> dict:
-    return {"lanes": [{"key": l.key, "label": l.label, "model": l.model, "effort": l.reasoning_effort, "dedicated": l.dedicated} for l in race_lanes()]}
+    return {
+        "lanes": [{"key": l.key, "label": l.label, "model": l.model, "effort": l.reasoning_effort, "dedicated": l.dedicated} for l in race_lanes()],
+        "default_modality": os.getenv("DEFAULT_MODALITY", "image"),
+    }
 
 
 @app.get("/api/examples")
@@ -170,7 +173,7 @@ def replay(name: str) -> dict:
 
 @app.get("/api/scoreboard")
 def scoreboard() -> dict:
-    pinned = os.getenv("SCOREBOARD")
+    pinned = os.getenv("SCOREBOARD") or ("data/demo/scoreboard.json" if (ROOT / "data/demo/scoreboard.json").exists() else None)
     if pinned:
         return json.loads((ROOT / pinned).read_text())
     runs = sorted((ROOT / "runs").glob("*/summary.json"), key=lambda p: p.stat().st_mtime)

@@ -188,6 +188,7 @@ def summarize(rows: list[dict], lane: Lane, wall_s: float, concurrency: int) -> 
 
     return {
         "lane": lane.key,
+        "label": lane.label,
         "model": lane.model,
         "reasoning_effort": lane.reasoning_effort,
         "n": n,

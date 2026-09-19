@@ -183,6 +183,8 @@ function pill(key, cls, text) { const el = card(key)?.querySelector('[data-k="pi
 
 async function init() {
   CONFIG = await (await fetch("/api/config")).json();
+  if (CONFIG.default_modality) $("#modality").value = CONFIG.default_modality;
+  showInput();
   buildLanes(CONFIG.lanes);
   EXAMPLES = await (await fetch("/api/examples")).json();
   EXAMPLES.forEach((e, idx) => $("#examples").insertAdjacentHTML("beforeend",
@@ -223,6 +225,13 @@ function showInput() {
   const image = $("#modality").value === "image";
   $("#spec").style.display = image ? "none" : "";
   $("#sheetbox").style.display = image ? "" : "none";
+  $("#note").textContent = image
+    ? "Every model gets the same drawing sheet and bounding box. Parts are held out: never seen in training."
+    : "Every model gets the same written spec. Pick a held-out part or write your own.";
+  if (image && !(currentExample && currentExample.sheet)) {
+    $("#sheet").removeAttribute("src");
+    $("#bboxline").textContent = "Pick a held-out part to see its drawing sheet.";
+  }
   if (image && currentExample && currentExample.sheet) {
     $("#sheet").src = currentExample.sheet;
     const b = currentExample.bbox;
@@ -347,16 +356,17 @@ async function handle(ev, state) {
 async function loadScoreboard() {
   const sb = await (await fetch("/api/scoreboard")).json();
   if (!sb || !sb.lanes) return;
-  $("#sbmeta").textContent = `· ${sb.n} held-out specs · ${sb.shots} worked examples for API lanes · ${sb.created}`;
+  $("#sbmeta").textContent = `· held-out parts never seen in training · ${sb.created}`;
+  const tier = (l, name) => (l.tiers && l.tiers[name] ? pct(l.tiers[name].success) + ` <span class="muted">(n=${l.tiers[name].n})</span>` : "–");
   const rows = sb.lanes.map((l) => `<tr>
-      <td>${esc(l.lane)} <span class="muted">${esc(l.model)}${l.reasoning_effort ? " · " + esc(l.reasoning_effort) : ""}</span></td>
+      <td>${esc(l.label || l.lane)} <span class="muted">${esc(l.model)}${l.reasoning_effort ? " · " + esc(l.reasoning_effort) : ""}${l.best_of > 1 ? " · best of " + l.best_of : ""}${l.modality ? " · " + (l.modality === "image" ? "sheets" : "text") : ""}</span></td>
       <td><b>${pct(l.success)}</b> <span class="muted">[${pct(l.success_ci95[0])}, ${pct(l.success_ci95[1])}]</span></td>
-      <td>${pct(l.success_iou95)}</td><td>${pct(l.run_rate)}</td><td>${num(l.mean_iou_aligned, 3)}</td>
-      <td>${pct(l.multi_part.success)}</td>
+      <td>${tier(l, "medium (7-12)")}</td><td>${tier(l, "complex (>=13)")}</td><td>${tier(l, "multi-part")}</td>
+      <td>${pct(l.run_rate)}</td>
       <td>${num(l.latency_p50, 1)} / ${num(l.latency_p95, 1)}</td>
       <td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td></tr>`).join("");
-  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Correct (IoU ≥ 0.9) [95% CI]</th><th>IoU ≥ 0.95</th><th>Runs</th>
-    <th>Mean IoU</th><th>Multi-part correct</th><th>Latency p50 / p95 s</th><th>$ / 1K parts</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("#scoreboard").innerHTML = `<table><thead><tr><th>Lane</th><th>Correct (IoU ≥ 0.9) [95% CI]</th><th>Medium (7–12 faces)</th><th>Complex (≥ 13)</th>
+    <th>Multi-part</th><th>Code runs</th><th>Latency p50 / p95 s</th><th>$ / 1K parts</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 async function playReplay(name, instant) {

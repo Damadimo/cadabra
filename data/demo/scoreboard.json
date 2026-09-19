@@ -1,0 +1,241 @@
+{
+ "n": 200,
+ "created": "2026-09-19T05:16:17",
+ "shots": "see rows",
+ "lanes": [
+  {
+   "lane": "kimi-k3@high",
+   "model": "moonshotai/Kimi-K3",
+   "reasoning_effort": "high",
+   "n": 200,
+   "success": 0.61,
+   "success_ci95": [
+    0.545,
+    0.68
+   ],
+   "success_iou95": 0.565,
+   "run_rate": 0.96,
+   "mean_iou_aligned": 0.7806141797942563,
+   "median_chamfer": 0.004814834649797203,
+   "single_part": {
+    "n": 187,
+    "success": 0.6256684491978609
+   },
+   "multi_part": {
+    "n": 13,
+    "success": 0.38461538461538464
+   },
+   "latency_p50": 12.167269646073692,
+   "latency_p95": 62.3254845473799,
+   "ttft_p50": 4.804816499934532,
+   "output_tokens_mean": 1489.92,
+   "attempts_mean": 1,
+   "cost_per_1k_usd": 37.040376,
+   "cost_note": "list price per token",
+   "wall_s": 1222.468592791818,
+   "label": "Kimi K3 (high)",
+   "run": "20260919-051617_sota-img",
+   "modality": "image",
+   "shots": 2,
+   "best_of": 1,
+   "tiers": {
+    "all": {
+     "n": 200,
+     "success": 0.61,
+     "ci95": [
+      0.545,
+      0.68
+     ]
+    },
+    "simple (<=6 faces)": {
+     "n": 135,
+     "success": 0.7703703703703704,
+     "ci95": [
+      0.6962962962962963,
+      0.8444444444444444
+     ]
+    },
+    "medium (7-12)": {
+     "n": 46,
+     "success": 0.2608695652173913,
+     "ci95": [
+      0.15217391304347827,
+      0.391304347826087
+     ]
+    },
+    "complex (>=13)": {
+     "n": 19,
+     "success": 0.3157894736842105,
+     "ci95": [
+      0.10526315789473684,
+      0.5263157894736842
+     ]
+    },
+    "multi-part": {
+     "n": 13,
+     "success": 0.38461538461538464,
+     "ci95": [
+      0.15384615384615385,
+      0.6153846153846154
+     ]
+    }
+   }
+  },
+  {
+   "lane": "glm-5.3-flash@high",
+   "model": "zai-org/GLM-5.3-Flash",
+   "reasoning_effort": "high",
+   "n": 200,
+   "success": 0.65,
+   "success_ci95": [
+    0.585,
+    0.715
+   ],
+   "success_iou95": 0.62,
+   "run_rate": 0.975,
+   "mean_iou_aligned": 0.8266467772118835,
+   "median_chamfer": 0.0046716292864088715,
+   "single_part": {
+    "n": 187,
+    "success": 0.6684491978609626
+   },
+   "multi_part": {
+    "n": 13,
+    "success": 0.38461538461538464
+   },
+   "latency_p50": 5.996079750009812,
+   "latency_p95": 58.24019450438209,
+   "ttft_p50": 2.7671303745592013,
+   "output_tokens_mean": 509.88,
+   "attempts_mean": 1,
+   "cost_per_1k_usd": 1.0152525000000001,
+   "cost_note": "list price per token",
+   "wall_s": 1081.086565209087,
+   "label": "GLM-5.3 Flash (high)",
+   "run": "20260919-051617_sota-img",
+   "modality": "image",
+   "shots": 2,
+   "best_of": 1,
+   "tiers": {
+    "all": {
+     "n": 200,
+     "success": 0.65,
+     "ci95": [
+      0.585,
+      0.715
+     ]
+    },
+    "simple (<=6 faces)": {
+     "n": 135,
+     "success": 0.8074074074074075,
+     "ci95": [
+      0.7407407407407407,
+      0.8740740740740741
+     ]
+    },
+    "medium (7-12)": {
+     "n": 46,
+     "success": 0.3695652173913043,
+     "ci95": [
+      0.2391304347826087,
+      0.5217391304347826
+     ]
+    },
+    "complex (>=13)": {
+     "n": 19,
+     "success": 0.21052631578947367,
+     "ci95": [
+      0.05263157894736842,
+      0.42105263157894735
+     ]
+    },
+    "multi-part": {
+     "n": 13,
+     "success": 0.38461538461538464,
+     "ci95": [
+      0.15384615384615385,
+      0.6153846153846154
+     ]
+    }
+   }
+  },
+  {
+   "lane": "glm-5.3@high",
+   "model": "zai-org/GLM-5.3",
+   "reasoning_effort": "high",
+   "n": 200,
+   "success": 0.17,
+   "success_ci95": [
+    0.12,
+    0.22
+   ],
+   "success_iou95": 0.165,
+   "run_rate": 0.72,
+   "mean_iou_aligned": 0.370352907339518,
+   "median_chamfer": 0.008670859522841846,
+   "single_part": {
+    "n": 187,
+    "success": 0.17647058823529413
+   },
+   "multi_part": {
+    "n": 13,
+    "success": 0.07692307692307693
+   },
+   "latency_p50": 31.789766020490788,
+   "latency_p95": 200.15115884752012,
+   "ttft_p50": 4.845734104048461,
+   "output_tokens_mean": 688.37,
+   "attempts_mean": 1,
+   "cost_per_1k_usd": 6.627294285714286,
+   "cost_note": "list price per token",
+   "wall_s": 2332.778517540777,
+   "label": "GLM-5.3 (high)",
+   "run": "20260919-051617_sota-img",
+   "modality": "image",
+   "shots": 2,
+   "best_of": 1,
+   "tiers": {
+    "all": {
+     "n": 200,
+     "success": 0.17,
+     "ci95": [
+      0.12,
+      0.22
+     ]
+    },
+    "simple (<=6 faces)": {
+     "n": 135,
+     "success": 0.21481481481481482,
+     "ci95": [
+      0.14814814814814814,
+      0.2814814814814815
+     ]
+    },
+    "medium (7-12)": {
+     "n": 46,
+     "success": 0.08695652173913043,
+     "ci95": [
+      0.021739130434782608,
+      0.17391304347826086
+     ]
+    },
+    "complex (>=13)": {
+     "n": 19,
+     "success": 0.05263157894736842,
+     "ci95": [
+      0.0,
+      0.15789473684210525
+     ]
+    },
+    "multi-part": {
+     "n": 13,
+     "success": 0.07692307692307693,
+     "ci95": [
+      0.0,
+      0.23076923076923078
+     ]
+    }
+   }
+  }
+ ]
+}

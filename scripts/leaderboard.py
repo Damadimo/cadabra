@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from statistics import mean
 
-from understudy.config import ROOT
+from understudy.config import PRETTY, ROOT
 from understudy.data import read_jsonl
 from understudy.stats import bootstrap_ci
 
@@ -39,6 +39,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("runs", nargs="*", type=Path)
     ap.add_argument("--latest", default="", help="comma-separated tags: use the newest run for each")
+    ap.add_argument("--out-json", type=Path, help="also write the demo scoreboard (e.g. data/demo/scoreboard.json)")
     args = ap.parse_args()
     dirs = list(args.runs)
     for tag in filter(None, args.latest.split(",")):
@@ -66,6 +67,25 @@ def main() -> None:
         print(f"| {modality} | {lane} | " + " | ".join(cell([r for r in mine if f(r)]) for f in TIERS.values())
               + f" | {lat[len(lat) // 2]:.1f} | {cost} |")
     print("\nRuns: " + ", ".join(f"{k} ({v['n']} parts, shots {v['shots']})" for k, v in metas.items()))
+    if args.out_json:
+        board = []
+        for run, meta in metas.items():
+            for lane in meta["lanes"]:
+                mine = [r for r in rows if r["_run"] == run and r["lane"] == lane["lane"]]
+                tiers = {}
+                for name, f in TIERS.items():
+                    part = [r for r in mine if f(r)]
+                    s_ = [1.0 if r["success"] else 0.0 for r in part]
+                    tiers[name] = {"n": len(part), "success": mean(s_) if s_ else None, "ci95": list(bootstrap_ci(s_)) if s_ else [None, None]}
+                if "label" not in lane:
+                    effort = lane.get("reasoning_effort")
+                    lane = {**lane, "label": PRETTY.get(lane["model"], lane["lane"]) + (f" ({effort})" if effort else "")}
+                board.append({**lane, "run": run, "modality": meta.get("modality", "text"), "shots": meta["shots"],
+                              "best_of": meta.get("best_of", 1), "tiers": tiers})
+        args.out_json.parent.mkdir(parents=True, exist_ok=True)
+        args.out_json.write_text(json.dumps({"n": max(m["n"] for m in metas.values()), "created": max(m["created"] for m in metas.values()),
+                                             "shots": "see rows", "lanes": board}, indent=1))
+        print(f"wrote {args.out_json}")
 
 
 if __name__ == "__main__":
