@@ -1,7 +1,7 @@
 """Merge benchmark runs into one table, split by part complexity (for README/Devpost).
 
   uv run python scripts/leaderboard.py runs/<run1> runs/<run2> ...     # or: --latest sota-img,ours-img
-  uv run python scripts/leaderboard.py --latest sota-img,sota-img-rest-flash --out-json data/demo/scoreboard.json
+  uv run python scripts/leaderboard.py --latest sota-img,sota-img-rest,ours-img --common --out-json data/demo/scoreboard.json
 
 Rows of the same lane, input modality and best-of setting are pooled across runs (a part graded twice counts once,
 newest run wins), so a 200-part run plus a 300-part run of the other parts reads as one 500-part result. Rows where
@@ -97,6 +97,7 @@ def main() -> None:
     ap.add_argument("runs", nargs="*", type=Path)
     ap.add_argument("--latest", default="", help="comma-separated tags: use the newest run for each")
     ap.add_argument("--out-json", type=Path, help="also write the demo scoreboard (e.g. data/demo/scoreboard.json)")
+    ap.add_argument("--common", action="store_true", help="score every lane on the same parts: the ones all shown lanes answered")
     ap.add_argument("--skip-lanes", default="glm-5.3@high", help="lanes left out of --out-json (default: GLM-5.3, a text-only model)")
     args = ap.parse_args()
     dirs = [d if d.is_absolute() else ROOT / d for d in args.runs]
@@ -105,6 +106,14 @@ def main() -> None:
         if found:
             dirs.append(found[-1])
     groups = load(dirs)
+    skip = set(args.skip_lanes.split(","))
+    if args.common:
+        shown = [g for k, g in groups.items() if k[1] not in skip]
+        common = set.intersection(*(set(g["rows"]) for g in shown)) if shown else set()
+        for g in groups.values():
+            g["rows"] = {i: r for i, r in g["rows"].items() if i in common}
+        groups = {k: g for k, g in groups.items() if g["rows"]}
+        print(f"common parts (answered by every shown lane): {len(common)}")
     board = sorted((entry(k, g) for k, g in groups.items()), key=lambda e: (e["modality"], -e["success"]))
     print("| Input | Lane | Best of | " + " | ".join(TIERS) + " | Latency p50 (s) | $ / 1K parts |")
     print("|" + "---|" * (len(TIERS) + 5))
@@ -119,7 +128,7 @@ def main() -> None:
     if args.out_json:
         created = max(json.loads((d / "summary.json").read_text())["created"] for d in dirs)
         args.out_json.parent.mkdir(parents=True, exist_ok=True)
-        shown = [e for e in board if e["lane"] not in set(args.skip_lanes.split(","))]
+        shown = [e for e in board if e["lane"] not in skip]
         args.out_json.write_text(json.dumps({"n": max(e["n"] for e in shown), "created": created, "lanes": shown}, indent=1))
         print(f"wrote {args.out_json}")
 

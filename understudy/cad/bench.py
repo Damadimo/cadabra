@@ -279,6 +279,9 @@ async def run(args) -> None:
         records = [r for r in records if r["n_parts"] > 1]
     if args.min_faces:
         records = [r for r in records if (r.get("n_faces") or 0) >= args.min_faces]
+    if args.only:
+        keep = {row["id"] for d in args.only.split(",") for row in read_jsonl(ROOT / "runs" / d / "results.jsonl") if not infra_failed(row)}
+        records = [r for r in records if r["id"] in keep]
     if args.exclude:
         seen = {row["id"] for d in args.exclude.split(",") for row in read_jsonl(ROOT / "runs" / d / "results.jsonl") if not infra_failed(row)}
         records = [r for r in records if r["id"] not in seen]
@@ -328,6 +331,7 @@ async def run(args) -> None:
         "retries": args.retries,
         "modality": args.modality,
         "best_of": args.best_of,
+        "seed": args.seed,
         "created": created.isoformat(timespec="seconds"),
         **({"aborted": aborted[0]} if aborted else {}),
     }
@@ -355,6 +359,7 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.7, help="sampling temperature for --best-of")
     ap.add_argument("--multi-only", action="store_true", help="only multi-part specs")
     ap.add_argument("--min-faces", type=int, default=0, help="only parts with at least this many faces")
+    ap.add_argument("--only", default="", help="comma-separated run dirs under runs/: exactly the parts scored there (same parts as a baseline)")
     ap.add_argument("--exclude", default="", help="comma-separated run dirs under runs/: skip parts already scored there (API failures are redone)")
     ap.add_argument("--timeout", type=float, default=1800.0, help="per-request timeout (long reasoning runs)")
     ap.add_argument("--tag", default="bench")
