@@ -21,9 +21,10 @@ import re, sys
 src, dst, job, ckpts, gpu = sys.argv[1:]
 s = open(src).read()
 s = s.replace("model_name: understudy-cad-vl-lora", "model_name: understudy-cad-vl-curve")
-paths = "".join(f"        - rank-0/{c}/\n" for c in ckpts.split(","))
-s = re.sub(r"      paths:\n        - rank-0/CHECKPOINT_NAME/\n", "      paths:\n" + paths, s)
-s = s.replace("TRAINING_JOB_ID", job)
+# one reference per checkpoint: Baseten mirrors each reference as one bt:// volume, and several paths under a single
+# reference mirrored nothing
+refs = "".join(f"    - training_job_id: {job}\n      paths:\n        - rank-0/{c}/\n" for c in ckpts.split(","))
+s = re.sub(r"    - training_job_id: TRAINING_JOB_ID\n      paths:\n        - rank-0/CHECKPOINT_NAME/\n", refs, s)
 start = s.index("  start_command: >-")
 end = s.index("  readiness_endpoint:")
 s = s[:start] + """  start_command: >-
