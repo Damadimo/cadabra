@@ -9,8 +9,9 @@ graded by the geometry itself.
 ## Inspiration
 Frontier models write good code, and in 2026 they turn explicit text specs into CAD almost perfectly: on our held-out
 parts Kimi K3 got 95% right from a written spec. But real CAD work starts from drawings. When we gave the same parts
-as a drawing sheet (front, top and right views plus an isometric), Kimi K3 fell to 61%, and to 26–32% on parts with
-more than a handful of faces. That gap is a narrow, verifiable job: exactly what a small specialized model should own.
+as a drawing sheet (front, top and right views plus an isometric), Kimi K3 fell to 62% and GLM-5.3 Flash to 66% on 500
+held-out parts, and both to 19–37% on parts with more than six faces. That gap is a narrow, verifiable job: exactly
+what a small specialized model should own.
 
 ## What it does
 - Takes a 4-view drawing sheet and the part's bounding box, writes CadQuery (Python) code, and builds the solid.
@@ -35,9 +36,9 @@ more than a handful of faces. That gap is a narrow, verifiable job: exactly what
 | Model | Correct overall | Medium parts (7–12 faces) | Complex (≥ 13) | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|
 | **Understudy-CAD 4B (ours)** | [..%] | [..%] | [..%] | [$..] | [..s] |
-| Kimi K3 (high) | 61.0% [55–68] | 26.1% | 31.6% | $37.04 | 12.2 s |
-| GLM-5.3 Flash (high) | 65.0% [58–72] | 37.0% | 21.1% | $1.02 | 6.0 s |
-| Untuned Qwen3-VL-4B | [..%] | [..%] | [..%] | | |
+| GLM-5.3 Flash (high) | 66.2% [62–70] | 37.0% | 18.6% | $1.00 | 3.7 s |
+| Kimi K3 (high) | 61.8% [58–66] | 30.3% | 18.6% | $36.82 | 10.4 s |
+| Untuned Qwen3-VL-4B | [..%] (13.2% on the first 200) | [..%] | [..%] | | |
 
 [200/500] held-out parts, bootstrap 95% CIs. Rows where an API returned no answer (e.g. 402s) are left out and listed,
 never scored as wrong answers.
@@ -57,6 +58,10 @@ never scored as wrong answers.
 - A verifier that needs no answer key: render-and-compare separates correct from wrong frontier answers with AUC 0.96
   (689 answers) and, given several answers for one part, picks a correct one 98% of the time.
 - [Our headline delta: e.g. "+X points over Kimi K3 on complex parts at 1/Y the cost"].
+- Post-training works fast: after only 200 of 1,892 steps (11% of one epoch) our 4B model already tied Kimi K3 on the
+  same parts (60.9% vs 60.9%), up from 13.2% for the untuned model.
+- Our verifier makes any model better: best-of-4 with render-and-compare lifted Kimi K3 from 28% to 48% and GLM-5.3
+  Flash from 32% to 46% on the hard parts. For K3 that costs $252 per 1,000 parts.
 - Every number reproducible from the repo: `scripts/audit_cadcoder.py`, `understudy/cad/bench.py`, `scripts/leaderboard.py`.
 
 ## What we learned
