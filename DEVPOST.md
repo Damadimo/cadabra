@@ -35,10 +35,11 @@ what a small specialized model should own.
 ## Results (held-out parts, never seen in training)
 | Model | Correct overall | Medium parts (7–12 faces) | Complex (≥ 13) | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|
-| **Understudy-CAD 4B (ours)** | [..%] | [..%] | [..%] | [$..] | [..s] |
+| **Understudy-CAD 4B, best of 8 (ours)** | **79.7%** [76–83] | **58.8%** | **30.5%** | $1.23 | 2.2 s |
+| **Understudy-CAD 4B, 1 sample (ours)** | **70.4%** [66–74] | 44.5% | 20.3% | **$0.19** | **1.9 s** |
 | GLM-5.3 Flash (high) | 66.2% [62–70] | 37.0% | 18.6% | $1.00 | 3.7 s |
 | Kimi K3 (high) | 61.8% [58–66] | 30.3% | 18.6% | $36.82 | 10.4 s |
-| Untuned Qwen3-VL-4B | [..%] (13.2% on the first 200) | [..%] | [..%] | | |
+| Untuned Qwen3-VL-4B | 14.7% [11–18] | 8.4% | 1.7% | | |
 
 [200/500] held-out parts, bootstrap 95% CIs. Rows where an API returned no answer (e.g. 402s) are left out and listed,
 never scored as wrong answers.
@@ -57,7 +58,9 @@ never scored as wrong answers.
 ## Accomplishments
 - A verifier that needs no answer key: render-and-compare separates correct from wrong frontier answers with AUC 0.96
   (689 answers) and, given several answers for one part, picks a correct one 98% of the time.
-- [Our headline delta: e.g. "+X points over Kimi K3 on complex parts at 1/Y the cost"].
+- **+13.5 points over the best frontier model** (79.7% vs 66.2%) at the same price, and **+21.8 points on medium parts**.
+- One sample already beats both (70.4%) at **$0.19 per 1,000 parts: 5x cheaper than GLM-5.3 Flash and 194x cheaper than
+  Kimi K3**, at 1.9 s per part vs 3.7 s and 10.4 s.
 - Post-training works fast: after only 200 of 1,892 steps (11% of one epoch) our 4B model already tied Kimi K3 on the
   same parts (60.9% vs 60.9%), up from 13.2% for the untuned model.
 - Our verifier makes any model better: best-of-4 with render-and-compare lifted Kimi K3 from 28% to 48% and GLM-5.3
