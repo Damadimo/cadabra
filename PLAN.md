@@ -55,7 +55,7 @@ Three things only you can unblock (everything else is built, dry-run tested and 
 | Training stops early / `merged` missing | `./scripts/deploy_vlm.sh <job_id> H100_40GB checkpoint-<N>` (base + LoRA) |
 | The H100 is ours for a fixed window | set `TIME_BUDGET_H` in `training/vlm/config_vlm.py`: stops, saves and merges in time |
 | Deploys stay blocked (no payment method) | `./scripts/serve_local.sh <job_id>` serves the trained weights on this Mac (MLX, OpenAI API on :8810); benchmark with `--only 20260919-051617_sota-img`, say "served on a laptop" |
-| Model APIs stay blocked (402) | frontier numbers stand on the 200-part run; race UI plays recorded replays (`?replay=`) |
+| Model APIs stay blocked (402) | frontier numbers stand on the 200-part run; `uv run python scripts/make_replays.py --runs sota-img,ours-img` builds replays of the demo parts from the saved answers (`/?replay=<id>-image`) |
 | GPU time left after SFT + deploy + benchmark | optional RL stage: `training/vlm/config_grpo_vlm.py` (see training/vlm/README.md) |
 
 ## Questions for the Baseten booth

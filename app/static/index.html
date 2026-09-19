@@ -387,11 +387,13 @@ async function playReplay(name, instant) {
   buildLanes(rp.lanes);
   const state = {};
   for (const l of CONFIG.lanes) state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
-  const ex = EXAMPLES.find((e) => e.id === rp.example_id);
+  const ex = EXAMPLES.find((e) => e.id === rp.example_id) || (rp.example_id && { id: rp.example_id, spec: rp.spec || "", sheet: rp.sheet, bbox: rp.bbox });
   if (ex) { currentExample = ex; $("#spec").value = ex.spec; }
   $("#modality").value = rp.modality;
   showInput();
-  $("#note").textContent = `Replay of a recorded race (${rp.modality === "image" ? "drawing sheet" : "written spec"}).`;
+  $("#note").textContent = rp.source
+    ? `Replay: each model's answer from the ${rp.source}, played at its measured speed (no live calls).`
+    : `Replay of a recorded race (${rp.modality === "image" ? "drawing sheet" : "written spec"}).`;
   const t0 = performance.now();
   for (const ev of rp.events) {
     if (!instant) { const wait = ev.t * 1000 - (performance.now() - t0); if (wait > 0) await new Promise((r) => setTimeout(r, wait)); }

@@ -54,6 +54,8 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 
 - **Same task for every lane:** one drawing sheet plus the bounding box. Frontier lanes additionally get two worked
   examples (sheet + program) and high reasoning effort; ours gets the zero-shot prompt it was trained on.
+- **Output budget:** frontier lanes may use up to 16,384 output tokens (reasoning included). Kimi K3 hit that cap on
+  2 of 200 parts; counting both as correct would move it from 61.0% to 62.0%.
 - **Success = the code runs and aligned IoU ≥ 0.9.** Also reported: IoU ≥ 0.95, run rate, mean IoU, Chamfer
   distance, results by complexity (faces, parts), latency p50/p95, output tokens and $ per 1K parts.
 - **Bootstrap 95% CIs**, fixed seeds. If the API returns no answer at all (402, 5xx, dropped connection after
