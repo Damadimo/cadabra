@@ -23,6 +23,15 @@ from .render import image_path
 OUT = ROOT / "training" / "vlm" / "data"
 
 
+def tidy(code: str) -> str:
+    """Drop what the dataset left behind where its display call was: trailing comment-only lines ("# Display the
+    final model"), print(...) and bare-name lines. Geometry is untouched; the target just ends at the last real line."""
+    lines = code.rstrip().split("\n")
+    while lines and (not lines[-1].strip() or lines[-1].lstrip().startswith(("#", "print(")) or lines[-1].split("#")[0].strip().isidentifier()):
+        lines.pop()
+    return "\n".join(lines) + "\n"
+
+
 def row(rec: dict, bbox: list[float]) -> dict:
     name = image_path(rec["id"], IMAGES).name
     return {
@@ -31,7 +40,7 @@ def row(rec: dict, bbox: list[float]) -> dict:
             {"role": "system", "content": prompts.SYSTEM_IMAGE},
             {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompts.image_request(bbox)}]},
         ],
-        "completion": [{"role": "assistant", "content": prompts.completion(rec["gold_code"])}],
+        "completion": [{"role": "assistant", "content": prompts.completion(tidy(rec["gold_code"]))}],
     }
 
 
