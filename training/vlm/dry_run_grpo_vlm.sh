@@ -41,6 +41,7 @@ PYEOF
 export CPU_DRY_RUN=1 MERGE_AT_END=1 TOKENIZERS_PARALLELISM=false SFT_ADAPTER="" REWARD_WORKERS=2
 export BASE_MODEL=trl-internal-testing/tiny-Qwen3VLForConditionalGeneration
 export MAX_STEPS=1 BATCH=2 GRAD_ACCUM=1 NUM_GENERATIONS=2 MAX_COMPLETION=24 SAVE_STEPS=1 BT_CHECKPOINT_DIR="$WORK/ckpt"
+export GRADIENT_CHECKPOINTING=1  # the H100 setting: exercises SheetGRPOTrainer's eval-mode rollouts
 
 # The reward on known answers: the reference itself, a wrong size, a crash, and no code at all. (A file, not stdin:
 # the reward's worker processes re-import the parent script when they spawn, as on macOS.)

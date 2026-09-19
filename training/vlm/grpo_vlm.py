@@ -98,6 +98,22 @@ def success_metric(prompts, completions, gold_code, **kwargs) -> list[float]:
     return out
 
 
+class SheetGRPOTrainer(GRPOTrainer):
+    """Rollouts in eval mode. With gradient checkpointing on, transformers turns the KV cache off for any layer in
+    training mode (GradientCheckpointingLayer), and TRL generates before its own checkpointing-off block, so plain
+    generate() would recompute the whole sequence for every new token. Eval mode keeps the cache; the gradient pass
+    after it still runs checkpointed."""
+
+    def _generate(self, prompts):
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            return super()._generate(prompts)
+        finally:
+            if was_training:
+                self.model.train()
+
+
 def load_dataset_rows() -> Dataset:
     with open(os.path.join(DATA_DIR, "grpo.jsonl")) as f:
         rows = [
@@ -144,13 +160,13 @@ def main() -> None:
         logging_steps=1,
         bf16=not CPU_DRY_RUN,
         use_cpu=CPU_DRY_RUN,
-        gradient_checkpointing=not CPU_DRY_RUN,
+        gradient_checkpointing=os.getenv("GRADIENT_CHECKPOINTING", "0" if CPU_DRY_RUN else "1") == "1",
         gradient_checkpointing_kwargs={"use_reentrant": False},
         use_vllm=False,
         report_to="none",
         reward_weights=[1.0, 0.0],
     )
-    trainer = GRPOTrainer(
+    trainer = SheetGRPOTrainer(
         model=model,
         reward_funcs=[geometry_reward, success_metric],
         args=args,
@@ -159,6 +175,8 @@ def main() -> None:
         peft_config=peft_config,
     )
     trainer.train()
+    timing = {k: round(v, 2) for e in trainer.state.log_history[-3:] for k, v in e.items() if "generate" in k and isinstance(v, float)}
+    print(f"rollout timing (last steps): {timing}")
     trainer.save_model(OUTPUT_DIR)
     with open(os.path.join(OUTPUT_DIR, "grpo_log.json"), "w") as f:
         json.dump(trainer.state.log_history, f, indent=1)
