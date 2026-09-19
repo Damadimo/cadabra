@@ -46,6 +46,7 @@ training_runtime = Runtime(
         "SAVE_STEPS": "10",
         "REWARD_WORKERS": "12",
         "MERGE_AT_END": "1",
+        "EVAL_BENCH": "1",  # held-out sheets, greedy, graded after saving -> bench_eval/results.json
         "HF_TOKEN": SecretReference(name="hf_access_token"),
     },
     cache_config=CacheConfig(enabled=True),

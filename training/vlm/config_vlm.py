@@ -29,6 +29,7 @@ training_runtime = Runtime(
         "SAVE_STEPS": "200",
         "TIME_BUDGET_H": "0",  # e.g. "2.5" if the H100 is ours for 3 h: stops, saves and merges in time
         "MERGE_AT_END": "1",  # writes $BT_CHECKPOINT_DIR/merged for vLLM
+        "EVAL_BENCH": "1",  # after saving: greedy answers for the 500 held-out sheets, graded -> bench_eval/results.json (~6-10 min)
         "SAVE_ONLY_MODEL": "1",  # checkpoints hold the adapter only (no optimizer state): ~3x smaller, faster to sync/deploy
         "HF_TOKEN": SecretReference(name="hf_access_token"),  # workspace secret: authenticated (faster) weight download
     },

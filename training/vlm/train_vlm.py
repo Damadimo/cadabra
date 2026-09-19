@@ -216,3 +216,5 @@ print(f"Training complete. LoRA adapters saved to {OUTPUT_DIR}")
 
 if MERGE_AT_END:
     save_merged(trainer.model, os.path.join(OUTPUT_DIR, "merged"))
+# The benchmark eval (EVAL_BENCH=1) runs after this script exits, as its own process (run_vlm.sh -> bench_eval.py): its
+# grading workers are spawned, and a spawned child re-imports __main__, which here is this whole training script.

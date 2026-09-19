@@ -7,8 +7,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="$HERE/../../.dryrun/vlm"  # outside training/vlm: a job push uploads that whole folder
 rm -rf "$WORK" && mkdir -p "$WORK/data/images"
-cp "$HERE/train_vlm.py" "$HERE/vlm_common.py" "$WORK/"
-PY=(uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" python)
+cp "$HERE/train_vlm.py" "$HERE/vlm_common.py" "$HERE/bench_eval.py" "$WORK/"
+mkdir -p "$WORK/cadcheck" && cp "$HERE/../../understudy/cad/geometry.py" "$HERE/../../understudy/cad/pool.py" "$WORK/cadcheck/"
+echo '"""geometry checker copy (dry run)"""' > "$WORK/cadcheck/__init__.py"
+PY=(uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" --with cadquery --with trimesh --with scipy python)
 cd "$WORK"
 
 # Fake dataset in the coordinator's on-disk format: 4 train rows, 2 val rows.
@@ -66,6 +68,10 @@ for i, (dims, code) in enumerate(PARTS):
 for name, part in (("train", rows[:4]), ("val", rows[4:])):
     with open(f"data/{name}.jsonl", "w") as f:
         f.writelines(json.dumps(r) + "\n" for r in part)
+with open("data/bench.jsonl", "w") as f:  # in-job benchmark eval (bench_eval.py): prompt + reference, no completion
+    for i, r in enumerate(rows[4:]):
+        code = r["completion"][0]["content"].split("```python\n")[1].rsplit("```", 1)[0]
+        f.write(json.dumps({"id": f"bench:{i}", "images": r["images"], "prompt": r["prompt"], "gold_code": code, "n_faces": 6, "n_parts": 1}) + "\n")
 print("fake dataset:", len(rows[:4]), "train rows,", len(rows[4:]), "val rows")
 EOF
 
@@ -73,7 +79,9 @@ EOF
 export CPU_DRY_RUN=1 MERGE_AT_END=1 TOKENIZERS_PARALLELISM=false
 export BASE_MODEL=trl-internal-testing/tiny-Qwen3VLForConditionalGeneration
 export MAX_STEPS=2 BATCH=2 GRAD_ACCUM=1 SAVE_STEPS=1 LOG_STEPS=1 LR=5e-3 BT_CHECKPOINT_DIR="$WORK/ckpt"
+export EVAL_BENCH=1 EVAL_N=2 EVAL_BATCH=2 EVAL_MAX_NEW=16 REWARD_WORKERS=2
 "${PY[@]}" train_vlm.py
+"${PY[@]}" bench_eval.py "$WORK/ckpt/merged"  # as run_vlm.sh does after training
 
 # merged/ must load on its own, keep the pinned image budget, and equal base + LoRA adapter.
 "${PY[@]}" - <<'EOF'
@@ -110,6 +118,7 @@ print(f"merged/ check OK: {n_image} visual tokens; |merged - (base+{last})| = {d
 EOF
 
 ls "$WORK/ckpt" "$WORK/ckpt/merged"
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('bench_eval summary:', d['summary']); assert d['summary']['n'] == 2" "$WORK/ckpt/bench_eval/results.json"
 python3 -c "import json,sys; h=json.load(open(sys.argv[1])); print('train_log.json:', [{k: round(v, 4) for k, v in e.items() if k in ('step','loss','eval_loss','train_loss')} for e in h])" "$WORK/ckpt/train_log.json"
 du -sh "$WORK"
 [ "${KEEP:-0}" = "1" ] || rm -rf "$WORK"

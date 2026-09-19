@@ -84,6 +84,17 @@ def main() -> None:
     k_hard = min(len(hard), int(args.grpo_size * 0.8))
     picked = rng.sample(hard, k_hard) + rng.sample(easy, min(len(easy), args.grpo_size - k_hard))
     write_jsonl(OUT / "grpo.jsonl", [{**{k: v for k, v in row(r, index[r["id"]]["bbox"]).items() if k != "completion"}, "gold_code": r["gold_code"]} for r in picked])
+    # Held-out benchmark sheets for the optional in-job eval (bench_eval.py). Never read by the training loaders.
+    (OUT / "bench_images").mkdir(exist_ok=True)
+    bench = [r for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl") if r["id"] in index]
+    for r in bench:
+        dst = OUT / "bench_images" / image_path(r["id"], IMAGES).name
+        if not dst.exists():
+            shutil.copy(image_path(r["id"], IMAGES), dst)
+    write_jsonl(OUT / "bench.jsonl", [{**{k: v for k, v in row(r, index[r["id"]]["bbox"]).items() if k != "completion"},
+                                       "images": [f"bench_images/{image_path(r['id'], IMAGES).name}"],
+                                       "id": r["id"], "gold_code": r["gold_code"], "n_faces": r.get("n_faces"), "n_parts": r["n_parts"]}
+                                      for r in bench])
     cadcheck = OUT.parent / "cadcheck"
     cadcheck.mkdir(exist_ok=True)
     for name in ("geometry.py", "pool.py"):
@@ -93,7 +104,7 @@ def main() -> None:
     size_mb = sum(p.stat().st_size for p in (OUT / "images").iterdir()) / 1e6
     stats = {"train": len(fit), "val": len(val), "images_mb": round(size_mb, 1), "skipped_unrendered_or_excluded": missing,
              "multi_part": sum(r["n_parts"] > 1 for r in fit), "complex_7plus_faces": sum(r.get("n_faces", 0) >= 7 for r in fit),
-             "grpo_prompts": len(picked), "grpo_hard_share": round(k_hard / max(len(picked), 1), 2)}
+             "grpo_prompts": len(picked), "grpo_hard_share": round(k_hard / max(len(picked), 1), 2), "bench_eval_parts": len(bench)}
     (OUT / "stats.json").write_text(json.dumps(stats, indent=2))
     print(json.dumps(stats, indent=2))
 

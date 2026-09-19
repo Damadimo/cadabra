@@ -63,3 +63,4 @@ def save_merged(peft_model, out_dir):
     with open(path, "w") as f:
         json.dump(cfg, f, indent=2)
     print(f"Merged model written to {out_dir}: {sorted(os.listdir(out_dir))}")
+    return merged
