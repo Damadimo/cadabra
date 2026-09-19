@@ -47,8 +47,13 @@ def pctl(xs: list[float], q: float) -> float | None:
 LEFT_OUT: dict[str, int] = {}
 
 
+BENCH = {r["id"]: r for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")}
+
+
 def load(dirs: list[Path]) -> dict:
-    """(modality, lane, best_of) -> {"lane": lane summary of the newest run, "runs": [...], "rows": {id: row}}."""
+    """(modality, lane, best_of) -> {"lane": lane summary of the newest run, "runs": [...], "rows": {id: row}}.
+    Tier labels (faces, parts) come from the current bench.jsonl, so every run is split the same way (older runs
+    stored part counts from before a relabel)."""
     groups: dict[tuple, dict] = {}
     for d in sorted(dirs, key=lambda d: json.loads((d / "summary.json").read_text())["created"]):
         meta = json.loads((d / "summary.json").read_text())
@@ -61,7 +66,8 @@ def load(dirs: list[Path]) -> dict:
             g = groups.setdefault((modality, r["lane"], best_of), {"lane": by_lane[r["lane"]], "runs": {}, "rows": {}, "shots": meta["shots"]})
             g["lane"] = by_lane[r["lane"]]
             g["runs"][d.name] = by_lane[r["lane"]]
-            g["rows"][r["id"]] = {**r, "_run": d.name}
+            ref = BENCH.get(r["id"], {})
+            g["rows"][r["id"]] = {**r, "_run": d.name, "n_parts": ref.get("n_parts", r["n_parts"]), "n_faces": ref.get("n_faces", r.get("n_faces"))}
     return groups
 
 

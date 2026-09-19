@@ -33,7 +33,8 @@ fi
 grep -n "training_job_id\|rank-0\|accelerator:" "$WORK/config.yaml"
 
 echo "== pushing (first deploy pulls ~9 GB of weights; allow 10-20 min)"
-baseten model push --dir "$WORK" --wait --deploy-timeout 45m ${TEAM:+--team "$TEAM"}  # TEAM=22: our event team
+# --environment production: a re-push must replace production (else it stays on the previous, maybe failed, deployment)
+baseten model push --dir "$WORK" --environment production --wait --deploy-timeout 45m ${TEAM:+--team "$TEAM"}  # TEAM=22: our event team
 
 MODEL_ID="$(baseten model list --output json | NAME="$NAME" python3 -c 'import json,os,sys; ms=[m for m in json.load(sys.stdin)["models"] if m.get("name")==os.environ["NAME"]]; print(ms[0]["id"] if ms else "")')"
 [ -n "$MODEL_ID" ] || { echo "could not find the model id: run 'baseten model list'"; exit 1; }

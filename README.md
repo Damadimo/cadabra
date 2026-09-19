@@ -77,7 +77,7 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 | Kimi K3 (high) | 61.8% [58–66] | 81.4% | 30.3% | 18.6% | $36.82 | 10.4 s |
 | Untuned Qwen3-VL-4B | _after deploy_ | | | | | |
 
-All 500 held-out parts (322 simple, 119 medium, 59 complex; 38 multi-part). Text specs for comparison: Kimi K3 95.0%,
+All 500 held-out parts (322 simple, 119 medium, 59 complex; 43 multi-part). Text specs for comparison: Kimi K3 95.0%,
 GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is in [WORKLOG.md](WORKLOG.md).
 
 ## Quickstart
