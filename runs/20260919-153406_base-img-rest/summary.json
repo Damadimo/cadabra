@@ -1,0 +1,46 @@
+{
+  "data": "data/cad/bench.jsonl",
+  "n": 300,
+  "shots": 0,
+  "retries": 0,
+  "modality": "image",
+  "best_of": 1,
+  "seed": 0,
+  "created": "2026-09-19T15:34:06",
+  "lanes": [
+    {
+      "lane": "base-4b",
+      "label": "Base model (untuned)",
+      "model": "Qwen/Qwen3-VL-4B-Instruct",
+      "reasoning_effort": null,
+      "n": 300,
+      "n_infra_failed": 0,
+      "success": 0.15666666666666668,
+      "success_ci95": [
+        0.11666666666666667,
+        0.2
+      ],
+      "success_iou95": 0.15,
+      "run_rate": 0.34,
+      "mean_iou_aligned": 0.20172119009015047,
+      "median_chamfer": 0.006236909981698726,
+      "single_part": {
+        "n": 275,
+        "success": 0.15272727272727274
+      },
+      "multi_part": {
+        "n": 25,
+        "success": 0.2
+      },
+      "latency_p50": 22.397786541499954,
+      "latency_p95": 156.4411790211494,
+      "ttft_p50": 0.7438846874993033,
+      "output_tokens_mean": 675.2,
+      "attempts_mean": 1,
+      "oracle_success": null,
+      "cost_per_1k_usd": 0.5308829778373153,
+      "cost_note": "GPU $0.85/h amortized at concurrency 24",
+      "wall_s": 674.5336659580007
+    }
+  ]
+}
