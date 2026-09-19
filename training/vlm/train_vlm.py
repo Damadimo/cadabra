@@ -24,15 +24,13 @@ import time
 
 import torch
 from datasets import Dataset, Image, List
-from huggingface_hub import snapshot_download
 from peft import LoraConfig
 from PIL import Image as PILImage
 from transformers import AutoModelForImageTextToText, AutoProcessor, TrainerCallback
 from trl import SFTConfig, SFTTrainer
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-MODEL_ID = os.getenv("BASE_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
-DATA_DIR = os.getenv("DATA_DIR", os.path.join(HERE, "data"))
+from vlm_common import CPU_DRY_RUN, DATA_DIR, IMAGE_PIXELS, MODEL_ID, as_parts, image_path, save_merged
+
 OUTPUT_DIR = os.getenv("BT_CHECKPOINT_DIR", "./checkpoints")
 RANK = int(os.getenv("LORA_RANK", "16"))
 # alpha fixed at 32 (scale alpha/r): with this parametrization the best LR barely moves with rank ("LoRA Without Regret",
@@ -43,41 +41,12 @@ SAVE_STEPS = int(os.getenv("SAVE_STEPS", "200"))
 # Wall-clock cap on the training loop (hours, 0 = none). When it runs out, training stops at the next step and the
 # final adapter + merged model are still written, so a fixed GPU window always ends with something deployable.
 TIME_BUDGET_H = float(os.getenv("TIME_BUDGET_H", "0"))
-CPU_DRY_RUN = os.getenv("CPU_DRY_RUN") == "1"  # local smoke test on a laptop; never set on Baseten
 MERGE_AT_END = os.getenv("MERGE_AT_END", "0" if CPU_DRY_RUN else "1") == "1"
-
-# Image budget. Qwen3-VL cuts an image into 16x16 px patches and merges each 2x2 group into one LLM token, so a token
-# covers 32x32 px. Pinning min_pixels = max_pixels = IMAGE_PIXELS resizes every image to that area (aspect ratio kept,
-# sides rounded to multiples of 32), so the token count never depends on the render size. The default, 1024*1024,
-# leaves a 1024x1024 sheet untouched: 64x64 patches -> exactly 1024 visual tokens, 256 per view of the 2x2 sheet.
-# 768*768 (576 tokens) trains faster but blurs small holes and fillets; a bigger budget only upsamples the render.
-# merged/preprocessor_config.json carries the same budget, so vLLM resizes identically at serving time.
-IMAGE_PIXELS = int(os.getenv("IMAGE_PIXELS", str(1024 * 1024)))
 
 # LoRA on the language model's projections only. PEFT full-matches this regex against module names such as
 # model.language_model.layers.3.mlp.up_proj. The vision tower and merger (model.visual.*) get no adapters, so they stay
 # frozen, and lm_head stays unwrapped, which TRL's default chunked loss requires.
 LM_TARGETS = r".*language_model.*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)"
-
-
-def as_parts(message):
-    content = message["content"]
-    if isinstance(content, str):
-        content = [{"type": "text", "text": content}]
-    for part in content:
-        if part["type"] not in ("text", "image"):
-            raise ValueError(f"unsupported content part type {part['type']!r}")
-    return {"role": message["role"], "content": [{"type": p["type"], "text": p.get("text")} for p in content]}
-
-
-def image_path(path):
-    if os.path.isabs(path):
-        return path
-    for base in (DATA_DIR, HERE):
-        candidate = os.path.join(base, path)
-        if os.path.exists(candidate):
-            return candidate
-    raise FileNotFoundError(f"image {path} not found under {DATA_DIR} or {HERE}")
 
 
 def load_rows(name):
@@ -131,31 +100,6 @@ def dataloader_workers():
         return 4 if shutil.disk_usage("/dev/shm").total >= 8 * 2**30 else 0
     except OSError:
         return 0
-
-
-def save_merged(peft_model, out_dir):
-    """Fold the LoRA deltas into the base weights and write a folder vLLM serves exactly like BASE_MODEL."""
-    merged = peft_model.merge_and_unload()
-    merged.save_pretrained(out_dir)  # safetensors with the same tensor names as the base checkpoint
-    # Non-weight files are the base repo's own, not save_pretrained's. transformers 5 writes config.json with
-    # rope_parameters instead of rope_scaling, which transformers 4.57 fails to load (servers built on 4.x break), and
-    # moves the processor configs into processor_config.json. LoRA changes no config, so the base files are exact, and
-    # they load wherever the base model does (checked on 4.57.6 and 5.17). Only the image budget is updated to the one
-    # used in training.
-    src = MODEL_ID if os.path.isdir(MODEL_ID) else snapshot_download(MODEL_ID, allow_patterns=["*.json", "*.jinja", "*.txt"])
-    for name in os.listdir(src):
-        if name.endswith((".json", ".jinja", ".txt")) and not name.endswith(".index.json"):
-            shutil.copy(os.path.join(src, name), out_dir)
-    path = os.path.join(out_dir, "preprocessor_config.json")
-    with open(path) as f:
-        cfg = json.load(f)
-    cfg["size"] = {"shortest_edge": IMAGE_PIXELS, "longest_edge": IMAGE_PIXELS}
-    for key in ("min_pixels", "max_pixels"):  # older Qwen-VL repos also carry these
-        if key in cfg:
-            cfg[key] = IMAGE_PIXELS
-    with open(path, "w") as f:
-        json.dump(cfg, f, indent=2)
-    print(f"Merged model written to {out_dir}: {sorted(os.listdir(out_dir))}")
 
 
 processor = AutoProcessor.from_pretrained(MODEL_ID, min_pixels=IMAGE_PIXELS, max_pixels=IMAGE_PIXELS)
