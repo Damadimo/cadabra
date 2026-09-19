@@ -1,6 +1,6 @@
 """LoRA SFT with TRL. Runs inside the Baseten Training container (see config.py).
 
-Reads data/train.jsonl (+ data/val.jsonl if present) written by `python -m understudy.build_sft`.
+Reads data/train.jsonl (+ data/val.jsonl if present) written by `python -m cadabra.build_sft`.
 Prompt/completion rows train on the answer only; plain `messages` rows train on the whole conversation.
 Checkpoints go to $BT_CHECKPOINT_DIR, which Baseten syncs and can deploy. Never delete them mid-run.
 """

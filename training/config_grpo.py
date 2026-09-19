@@ -57,4 +57,4 @@ training_job = TrainingJob(
     runtime=training_runtime,
 )
 
-training_project = TrainingProject(name="understudy-cad-grpo", job=training_job)
+training_project = TrainingProject(name="cadabra-grpo", job=training_job)

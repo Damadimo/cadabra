@@ -10,7 +10,7 @@
   "lanes": [
     {
       "lane": "specialist",
-      "label": "Understudy-CAD 4B (ours)",
+      "label": "Cadabra 4B (ours)",
       "model": "checkpoint-1000",
       "reasoning_effort": null,
       "n": 200,

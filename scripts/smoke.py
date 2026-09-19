@@ -1,7 +1,7 @@
 """Pre-flight check (costs well under a cent): key works, benchmark slugs are live, each lane builds one part.
 
   uv run python scripts/smoke.py
-  UNDERSTUDY_BASE_URL=... UNDERSTUDY_MODEL=checkpoint-... uv run python scripts/smoke.py   # also checks our deployment
+  CADABRA_BASE_URL=... CADABRA_MODEL=checkpoint-... uv run python scripts/smoke.py   # also checks our deployment
 """
 
 from __future__ import annotations
@@ -10,12 +10,12 @@ import asyncio
 
 import httpx
 
-from understudy.cad import prompts
-from understudy.cad.bench import resolve_lanes
-from understudy.cad.pool import CadPool
-from understudy.config import DEPRECATED, MODEL_API_BASE_URL, ROOT, api_key, lanes
-from understudy.data import read_jsonl
-from understudy.llm import complete
+from cadabra.cad import prompts
+from cadabra.cad.bench import resolve_lanes
+from cadabra.cad.pool import CadPool
+from cadabra.config import DEPRECATED, MODEL_API_BASE_URL, ROOT, api_key, lanes
+from cadabra.data import read_jsonl
+from cadabra.llm import complete
 
 BENCH_SLUGS = ["moonshotai/Kimi-K3", "zai-org/GLM-5.3"]
 
@@ -37,7 +37,7 @@ async def main() -> None:
         if ours:
             rr = await http.get(f"{ours.base_url}/models", headers=headers)
             served = [m["id"] for m in rr.json().get("data", [])] if rr.status_code == 200 else f"HTTP {rr.status_code}"
-            print(f"Our deployment serves: {served}  (UNDERSTUDY_MODEL={ours.model})")
+            print(f"Our deployment serves: {served}  (CADABRA_MODEL={ours.model})")
 
     spec = read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")[0]
     todo = [l for l in (lanes().get("specialist"),) if l] + resolve_lanes(",".join(f"{s}:low" for s in BENCH_SLUGS))

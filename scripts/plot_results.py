@@ -19,7 +19,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from understudy.config import ROOT  # noqa: E402
+from cadabra.config import ROOT  # noqa: E402
 
 TIERS = [("all", "All parts"), ("simple (<=6 faces)", "Simple\n(≤ 6 faces)"), ("medium (7-12)", "Medium\n(7–12 faces)"),
          ("complex (>=13)", "Complex\n(≥ 13 faces)"), ("multi-part", "Multi-part")]

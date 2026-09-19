@@ -5,7 +5,7 @@
 
 Name the SFT checkpoint explicitly: the job's newest checkpoint folder may be merged/ (full weights, no adapter).
 Rollouts are generated with transformers on the H100; rewards run CadQuery on the node's CPUs (hence cpu_count).
-The log prints s/step after 20 steps; MAX_STEPS and TIME_BUDGET_H cap the run. deploy: PROJECT=understudy-cad-vlm-grpo
+The log prints s/step after 20 steps; MAX_STEPS and TIME_BUDGET_H cap the run. deploy: PROJECT=cadabra-vlm-grpo
 ./scripts/deploy_vlm.sh <grpo job id> H100_40GB
 """
 
@@ -68,4 +68,4 @@ training_job = TrainingJob(
     runtime=training_runtime,
 )
 
-training_project = TrainingProject(name="understudy-cad-vlm-grpo", job=training_job)
+training_project = TrainingProject(name="cadabra-vlm-grpo", job=training_job)

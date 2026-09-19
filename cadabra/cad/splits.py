@@ -1,6 +1,6 @@
 """Build the leakage-safe splits used everywhere (deterministic; run once after scripts/audit_cadcoder.py).
 
-  uv run python -m understudy.cad.splits
+  uv run python -m cadabra.cad.splits
 
 - bench.jsonl        500 specs held out of CAD-Coder train_high (the curated split), grouped by source part,
                      references verified to run (and to match their stated size where the spec states one).
@@ -10,7 +10,7 @@
 - train_vlm_extra.jsonl  extra parts from train_middle for the drawing-sheet model (images are rendered from the
                      reference code, so image and code always agree even where the text spec is noisy).
 - train_vlm_extra2.jsonl every remaining medium/complex/multi-part train_middle part, one per geometry signature not
-                     already covered (`python -m understudy.cad.splits --extra2`; leaves every other file untouched).
+                     already covered (`python -m cadabra.cad.splits --extra2`; leaves every other file untouched).
 
 Leakage guards: no source part is shared with bench, and no training part has the same geometry signature
 (bbox extents + face count) as a bench part: the underlying CAD library repeats many identical boxes.

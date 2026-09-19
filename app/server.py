@@ -25,13 +25,13 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from understudy.cad import prompts
-from understudy.cad.bench import FATAL, infra_failed, resolve_lanes
-from understudy.cad.render import image_path
-from understudy.cad.pool import CadPool
-from understudy.config import ROOT, Lane
-from understudy.data import read_jsonl
-from understudy.llm import complete, stream_chat
+from cadabra.cad import prompts
+from cadabra.cad.bench import FATAL, infra_failed, resolve_lanes
+from cadabra.cad.render import image_path
+from cadabra.cad.pool import CadPool
+from cadabra.config import ROOT, Lane
+from cadabra.data import read_jsonl
+from cadabra.llm import complete, stream_chat
 
 STATIC = Path(__file__).parent / "static"
 DATA = ROOT / "data" / "cad"
@@ -79,7 +79,7 @@ async def lifespan(_app: FastAPI):
     POOL.close()
 
 
-app = FastAPI(title="Understudy-CAD", lifespan=lifespan)
+app = FastAPI(title="Cadabra", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 

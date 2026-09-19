@@ -20,9 +20,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from understudy.cad.bench import infra_failed  # noqa: E402
-from understudy.config import ROOT  # noqa: E402
-from understudy.data import read_jsonl  # noqa: E402
+from cadabra.cad.bench import infra_failed  # noqa: E402
+from cadabra.config import ROOT  # noqa: E402
+from cadabra.data import read_jsonl  # noqa: E402
 
 BENCH = {r["id"]: r for r in read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")}
 HARD = lambda i: (BENCH[i].get("n_faces") or 0) >= 7  # noqa: E731

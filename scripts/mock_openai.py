@@ -1,7 +1,7 @@
 """Local stand-in for Baseten's OpenAI-compatible API, to build and rehearse the demo without spending credits.
 
   uv run python scripts/mock_openai.py          # serves http://127.0.0.1:8001/v1
-  BASETEN_BASE_URL=http://127.0.0.1:8001/v1 UNDERSTUDY_BASE_URL=http://127.0.0.1:8001/v1 \
+  BASETEN_BASE_URL=http://127.0.0.1:8001/v1 CADABRA_BASE_URL=http://127.0.0.1:8001/v1 \
     uv run uvicorn app.server:app --port 8000
 
 For held-out specs it answers with the reference CadQuery code; "frontier" model names sometimes get a copy with
@@ -23,8 +23,8 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from understudy.config import ROOT
-from understudy.data import read_jsonl
+from cadabra.config import ROOT
+from cadabra.data import read_jsonl
 
 app = FastAPI()
 BENCH = read_jsonl(ROOT / "data" / "cad" / "bench.jsonl")

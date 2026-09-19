@@ -21,17 +21,17 @@ Because nothing deployed, the image test, latency and cold start below are **not
 |---|---|
 | `vlm_base/config.yaml` | Untuned `Qwen/Qwen3-VL-4B-Instruct` from Hugging Face (pinned commit, BDN-mirrored), vLLM `v0.29.0-cu129`, L4 |
 | `vlm_ft/config.yaml` | Our merged fine-tune from a Baseten Training checkpoint (`bt://` weights). Placeholders: `TRAINING_PROJECT_NAME`, `TRAINING_JOB_ID` |
-| `vlm_lora/config.yaml` | Base model + our LoRA adapter from any checkpoint (e.g. `checkpoint-600` if the job is stopped early). Serves both `Qwen/Qwen3-VL-4B-Instruct` (base lane) and `understudy-cad-vl` (ours) on one endpoint. `./scripts/deploy_vlm.sh <job_id> <gpu> <checkpoint>` fills it |
+| `vlm_lora/config.yaml` | Base model + our LoRA adapter from any checkpoint (e.g. `checkpoint-600` if the job is stopped early). Serves both `Qwen/Qwen3-VL-4B-Instruct` (base lane) and `cadabra-vl` (ours) on one endpoint. `./scripts/deploy_vlm.sh <job_id> <gpu> <checkpoint>` fills it |
 | `test_vlm.py` | Streams one chat completion with a base64 PNG and prints TTFT, total latency and tok/s |
 
 ## Push
 
 ```sh
-cd ~/understudy
-baseten model push --dir deploy/vlm_base --wait --tail      # base: model "understudy-vlm-base"
+cd ~/cadabra
+baseten model push --dir deploy/vlm_base --wait --tail      # base: model "cadabra-vlm-base"
 # after training: fill the bt:// line in vlm_ft/config.yaml, then
 baseten train checkpoint list --job-id <TRAINING_JOB_ID>    # checkpoint ID must be "merged" and fully synced
-baseten model push --dir deploy/vlm_ft --wait --tail        # ours: model "understudy-cad-vl"
+baseten model push --dir deploy/vlm_ft --wait --tail        # ours: model "cadabra-vl"
 baseten model list                                          # model IDs
 ```
 
@@ -47,13 +47,13 @@ Authenticate with `Authorization: Bearer $BASETEN_API_KEY`, which the OpenAI SDK
 
 ```sh
 set -a; . ./.env; set +a
-export UNDERSTUDY_BASE_URL=https://model-<ft_model_id>.api.baseten.co/environments/production/sync/v1
-export UNDERSTUDY_MODEL=understudy-cad-vl             # --served-model-name in vlm_ft (base: Qwen/Qwen3-VL-4B-Instruct)
-export UNDERSTUDY_GPU_HOURLY=0.85                     # L4; 3.75 for H100_40GB, 6.50 for H100
+export CADABRA_BASE_URL=https://model-<ft_model_id>.api.baseten.co/environments/production/sync/v1
+export CADABRA_MODEL=cadabra-vl             # --served-model-name in vlm_ft (base: Qwen/Qwen3-VL-4B-Instruct)
+export CADABRA_GPU_HOURLY=0.85                     # L4; 3.75 for H100_40GB, 6.50 for H100
 uv run python deploy/test_vlm.py                      # uses /tmp/img2cad/montage_406.png if present
 ```
 
-`understudy/config.py` puts the `base-4b` lane on the same URL as `specialist`. With merged weights, base and
+`cadabra/config.py` puts the `base-4b` lane on the same URL as `specialist`. With merged weights, base and
 fine-tune are two deployments with two URLs, so that lane needs its own URL. The alternative is the LoRA option below.
 
 ## Latency and cost
@@ -76,8 +76,8 @@ or merger need `--enable-tower-connector-lora` (`supports_tower_connector_lora =
 and fine-tune side by side, which fits the current `base-4b` / `specialist` lanes:
 
 `vlm_lora/config.yaml` does this: base weights from the pinned HF commit at `/models/qwen3-vl-4b`, the adapter from
-`bt://understudy-cad-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 64
---lora-modules understudy-cad-vl=<folder holding adapter_config.json>`. Our adapters only touch the language model.
+`bt://cadabra-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 64
+--lora-modules cadabra-vl=<folder holding adapter_config.json>`. Our adapters only touch the language model.
 
 Not yet run on Baseten (deploys are blocked). LoRA adds per-token overhead compared with merged weights. `baseten train checkpoint deploy` only
 deploys LoRA checkpoints and is documented for LLMs, so write the config by hand for the VLM.

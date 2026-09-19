@@ -2,7 +2,7 @@
 #   baseten model push --dir deploy/vlm_base --wait
 # Endpoint: https://model-<model_id>.api.baseten.co/environments/production/sync/v1   model="Qwen/Qwen3-VL-4B-Instruct"
 # Based on docs.baseten.co/examples/vllm (vLLM v0.29.0 on L4) and /examples/models/llm/qwen3-vl.
-model_name: understudy-vlm-base
+model_name: cadabra-vlm-base
 model_metadata:
   example_model_input:
     model: Qwen/Qwen3-VL-4B-Instruct

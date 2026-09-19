@@ -1,4 +1,4 @@
-# Devpost draft: Understudy-CAD
+# Devpost draft: Cadabra
 
 _Fill the `[…]` placeholders from `runs/<ours>/summary.md` and `scripts/leaderboard.py` before submitting._
 
@@ -35,8 +35,8 @@ what a small specialized model should own.
 ## Results (held-out parts, never seen in training)
 | Model | Correct overall | Medium parts (7–12 faces) | Complex (≥ 13) | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|
-| **Understudy-CAD 4B, best of 8 (ours)** | **79.7%** [76–83] | **58.8%** | **30.5%** | $1.23 | 2.2 s |
-| **Understudy-CAD 4B, 1 sample (ours)** | **70.4%** [66–74] | 44.5% | 20.3% | **$0.19** | **1.9 s** |
+| **Cadabra 4B, best of 8 (ours)** | **79.7%** [76–83] | **58.8%** | **30.5%** | $1.23 | 2.2 s |
+| **Cadabra 4B, 1 sample (ours)** | **70.4%** [66–74] | 44.5% | 20.3% | **$0.19** | **1.9 s** |
 | GLM-5.3 Flash (high) | 66.2% [62–70] | 37.0% | 18.6% | $1.00 | 3.7 s |
 | Kimi K3 (high) | 61.8% [58–66] | 30.3% | 18.6% | $36.82 | 10.4 s |
 | Untuned Qwen3-VL-4B | 14.7% [11–18] | 8.4% | 1.7% | | |
@@ -65,7 +65,7 @@ never scored as wrong answers.
   same parts (60.9% vs 60.9%), up from 13.2% for the untuned model.
 - Our verifier makes any model better: best-of-4 with render-and-compare lifted Kimi K3 from 28% to 48% and GLM-5.3
   Flash from 32% to 46% on the hard parts. For K3 that costs $252 per 1,000 parts.
-- Every number reproducible from the repo: `scripts/audit_cadcoder.py`, `understudy/cad/bench.py`, `scripts/leaderboard.py`.
+- Every number reproducible from the repo: `scripts/audit_cadcoder.py`, `cadabra/cad/bench.py`, `scripts/leaderboard.py`.
 
 ## What we learned
 - Pilot the frontier before you train. The task you expect them to fail is often already solved.

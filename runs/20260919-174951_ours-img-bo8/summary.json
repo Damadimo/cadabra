@@ -10,8 +10,8 @@
   "lanes": [
     {
       "lane": "specialist",
-      "label": "Understudy-CAD 4B (ours)",
-      "model": "understudy-cad-vl",
+      "label": "Cadabra 4B (ours)",
+      "model": "cadabra-vl",
       "reasoning_effort": null,
       "n": 500,
       "n_infra_failed": 0,

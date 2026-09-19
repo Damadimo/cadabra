@@ -21,10 +21,10 @@
   rulecolor=\color{black!25},
 }
 
-\title{Understudy-CAD: post-training a 4B vision model to read engineering
+\title{Cadabra: post-training a 4B vision model to read engineering
 drawings into CAD programs}
 \author{Hack the North 2026 --- Baseten track\thanks{Code, data-building scripts and every benchmark run:
-\url{https://github.com/Damadimo/understudy}}}
+\url{https://github.com/Damadimo/cadabra}}}
 \date{19--20 September 2026}
 
 \begin{document}
@@ -262,12 +262,12 @@ volume a per-token API is cheaper than a dedicated one.
 
 \begin{lstlisting}[language=bash]
 python scripts/audit_cadcoder.py            # run every reference program, check it against its spec
-python -m understudy.cad.splits             # benchmark/training splits, held out by source part and geometry
-python -m understudy.cad.render --split bench    # drawing sheets
-python -m understudy.cad.build_vlm          # training rows + images
+python -m cadabra.cad.splits             # benchmark/training splits, held out by source part and geometry
+python -m cadabra.cad.render --split bench    # drawing sheets
+python -m cadabra.cad.build_vlm          # training rows + images
 cd training/vlm && baseten train push --config config_vlm.py --job-name sft   # LoRA SFT on H100(s)
 ./scripts/deploy_vlm.sh <job_id> H100       # merge -> vLLM on Baseten
-python -m understudy.cad.bench --modality image --lanes specialist --n 0 --shots 0 --tag ours-img
+python -m cadabra.cad.bench --modality image --lanes specialist --n 0 --shots 0 --tag ours-img
 python scripts/leaderboard.py --latest sota-img,ours-img --common --out-json data/demo/scoreboard.json
 python scripts/plot_results.py && python scripts/plot_curve.py && python scripts/leakage_check.py
 \end{lstlisting}

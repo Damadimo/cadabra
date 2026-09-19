@@ -1,4 +1,4 @@
-# Understudy-CAD
+# Cadabra
 
 **A 4B vision model, post-trained on a Baseten H100, that reads an engineering drawing sheet and writes the CadQuery
 program that builds the part. Graded by the geometry itself: every answer is executed and its solid is compared to
@@ -6,7 +6,7 @@ the reference with exact volumetric IoU.**
 
 Frontier models turn explicit text specs into CAD almost perfectly (Kimi K3: 95% on our held-out parts). Real CAD
 work starts from drawings, though, and from a 4-view drawing sheet the same models fall to 61–65%, and to 21–37% on
-parts with more than six faces. Understudy trains a small model on exactly that job, serves it on Baseten, and races
+parts with more than six faces. Cadabra trains a small model on exactly that job, serves it on Baseten, and races
 it live against Kimi K3 and GLM-5.3 Flash on held-out parts.
 
 ## How it works
@@ -61,7 +61,7 @@ held-out sheet ─► sample N programs ─► render each like the input sheet,
 - **Bootstrap 95% CIs**, fixed seeds. If the API returns no answer at all (402, 5xx, dropped connection after
   retries) the row is left out and listed, never scored as a wrong answer.
 - **Best-of-N without an answer key.** Our lane may sample several programs and keep the one whose rendering best
-  matches the *input* sheet and the stated bounding box (render-and-compare, `understudy/cad/verify.py`). On 689 real
+  matches the *input* sheet and the stated bounding box (render-and-compare, `cadabra/cad/verify.py`). On 689 real
   frontier answers it separates correct from wrong with AUC 0.96, and among several answers for the same part it
   picks a correct one 98% of the time (random: 76%). Frontier lanes can use the same verifier (`--best-of`).
 - **Cost includes the GPU.** Our $/1K parts is the GPU's hourly price amortized over measured throughput.
@@ -72,8 +72,8 @@ Drawing sheets, held-out parts ([`data/demo/scoreboard.json`](data/demo/scoreboa
 
 | Model | Correct overall [95% CI] | Simple (≤ 6 faces) | Medium (7–12) | Complex (≥ 13) | Multi-part | $ / 1K parts | Latency p50 |
 |---|---|---|---|---|---|---|---|
-| **Understudy-CAD 4B, best of 8 (ours)** | **79.7% [76–83]** | **96.6%** | **58.8%** | **30.5%** | **53.5%** | $1.23 | 2.2 s |
-| **Understudy-CAD 4B, 1 sample (ours)** | **70.4% [66–74]** | 89.3% | 44.5% | 20.3% | 46.5% | **$0.19** | **1.9 s** |
+| **Cadabra 4B, best of 8 (ours)** | **79.7% [76–83]** | **96.6%** | **58.8%** | **30.5%** | **53.5%** | $1.23 | 2.2 s |
+| **Cadabra 4B, 1 sample (ours)** | **70.4% [66–74]** | 89.3% | 44.5% | 20.3% | 46.5% | **$0.19** | **1.9 s** |
 | GLM-5.3 Flash (high) | 66.2% [62–70] | 85.9% | 37.0% | 18.6% | 39.5% | $1.00 | 3.7 s (p95 37 s) |
 | Kimi K3 (high) | 61.8% [58–66] | 81.5% | 30.3% | 18.6% | 39.5% | $36.82 | 10.4 s (p95 89 s) |
 | Untuned Qwen3-VL-4B | 14.7% [11–18] | 19.4% | 8.4% | 1.7% | 16.3% | | |
@@ -135,8 +135,8 @@ uv sync                                              # Python 3.12, CadQuery, VT
 cp .env.example .env                                 # add BASETEN_API_KEY
 uv run python scripts/smoke.py                       # catalog, rate limit, one held-out part per lane
 uv run python scripts/audit_cadcoder.py              # optional: re-run the data audit
-uv run python -m understudy.cad.splits               # rebuild splits (deterministic); --extra2 for the second batch
-uv run python -m understudy.cad.render --split bench # render drawing sheets
+uv run python -m cadabra.cad.splits               # rebuild splits (deterministic); --extra2 for the second batch
+uv run python -m cadabra.cad.render --split bench # render drawing sheets
 uv run uvicorn app.server:app --port 8000            # 3D race UI
 uv run pytest -q
 ```
@@ -144,9 +144,9 @@ uv run pytest -q
 Benchmark any lane (named lanes, or any Model API slug as `slug:effort`):
 
 ```bash
-uv run python -m understudy.cad.bench --modality image --lanes moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high --n 200 --tag sota-img
-UNDERSTUDY_BASE_URL=... uv run python -m understudy.cad.bench --modality image --lanes specialist --n 500 --shots 0 --tag ours-img
-uv run python -m understudy.cad.bench ... --best-of 8           # sample 8, keep the best render-and-compare match
+uv run python -m cadabra.cad.bench --modality image --lanes moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high --n 200 --tag sota-img
+CADABRA_BASE_URL=... uv run python -m cadabra.cad.bench --modality image --lanes specialist --n 500 --shots 0 --tag ours-img
+uv run python -m cadabra.cad.bench ... --best-of 8           # sample 8, keep the best render-and-compare match
 uv run python scripts/leaderboard.py --latest sota-img,ours-img --out-json data/demo/scoreboard.json
 uv run python scripts/plot_results.py                          # docs/results_by_tier.png, docs/cost_vs_accuracy.png
 ```
@@ -154,8 +154,8 @@ uv run python scripts/plot_results.py                          # docs/results_by
 ## Training and serving on Baseten
 
 ```bash
-uv run python -m understudy.cad.render --split train_vlm_extra   # (and train, train_vlm_extra2) sheets for training
-uv run python -m understudy.cad.build_vlm                          # training/vlm/data: rows + images
+uv run python -m cadabra.cad.render --split train_vlm_extra   # (and train, train_vlm_extra2) sheets for training
+uv run python -m cadabra.cad.build_vlm                          # training/vlm/data: rows + images
 ./training/vlm/dry_run_vlm.sh                                      # 2 CPU steps with a tiny Qwen3-VL (free)
 cd training/vlm && baseten train push --config config_vlm.py       # LoRA SFT on 1x H100
 ./scripts/deploy_vlm.sh <job_id> H100_40GB                         # merged weights -> vLLM; prints the .env lines
@@ -167,9 +167,9 @@ The text-spec model (Qwen3-4B, `training/`, SFT + GRPO on the IoU reward) is kep
 ## Layout
 
 ```
-understudy/cad/       geometry.py (sandbox + IoU), pool.py (worker processes), data.py, splits.py, prompts.py,
+cadabra/cad/       geometry.py (sandbox + IoU), pool.py (worker processes), data.py, splits.py, prompts.py,
                       render.py (drawing sheets), verify.py (render-and-compare), bench.py, build_vlm.py, build_sft.py
-understudy/llm.py     streaming client: TTFT, tokens, cost, retries (429/5xx, dropped streams)
+cadabra/llm.py     streaming client: TTFT, tokens, cost, retries (429/5xx, dropped streams)
 training/vlm/         Baseten job for the drawing-sheet model (config_vlm.py, train_vlm.py, dry_run_vlm.sh)
 training/             text model: SFT (config.py, train.py), GRPO (config_grpo.py, grpo.py), dry_run.sh
 deploy/               vLLM configs: base model, merged fine-tune, base + LoRA

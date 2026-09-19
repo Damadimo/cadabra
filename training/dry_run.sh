@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$ROOT/.dryrun"
 STAGE="${1:-sft}"
-[ -f "$ROOT/training/data/train.jsonl" ] || (cd "$ROOT" && uv run python -m understudy.cad.build_sft)
+[ -f "$ROOT/training/data/train.jsonl" ] || (cd "$ROOT" && uv run python -m cadabra.cad.build_sft)
 rm -rf "$WORK" && mkdir -p "$WORK/data"
 cp "$ROOT/training/train.py" "$ROOT/training/grpo.py" "$WORK/"
 cp -r "$ROOT/training/cadcheck" "$WORK/"

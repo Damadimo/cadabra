@@ -4,7 +4,7 @@
 #
 #   TEAM=22 ./scripts/learning_curve.sh <training_job_id> checkpoint-400,checkpoint-600,checkpoint-800 [accelerator]
 #
-# The model is "understudy-cad-vl-curve" (its own deployment, so it never disturbs the demo endpoint). Each checkpoint
+# The model is "cadabra-vl-curve" (its own deployment, so it never disturbs the demo endpoint). Each checkpoint
 # is served under its own name; runs are tagged ckpt<N>-img. Deactivate it afterwards:
 #   baseten model deployment deactivate --model-id <id> --deployment-id <id> --yes
 set -euo pipefail
@@ -20,7 +20,7 @@ python3 - "$ROOT/deploy/vlm_lora/config.yaml" "$WORK/config.yaml" "$JOB_ID" "$CK
 import re, sys
 src, dst, job, ckpts, gpu = sys.argv[1:]
 s = open(src).read()
-s = s.replace("model_name: understudy-cad-vl-lora", "model_name: understudy-cad-vl-curve")
+s = s.replace("model_name: cadabra-vl-lora", "model_name: cadabra-vl-curve")
 # one reference per checkpoint: Baseten mirrors each reference as one bt:// volume, and several paths under a single
 # reference mirrored nothing
 refs = "".join(f"    - training_job_id: {job}\n      paths:\n        - rank-0/{c}/\n" for c in ckpts.split(","))
@@ -51,7 +51,7 @@ grep -n "rank-0\|accelerator:\|model_name" "$WORK/config.yaml"
 
 echo "== pushing the curve deployment"
 baseten model push --dir "$WORK" --environment production --wait --deploy-timeout 45m ${TEAM:+--team "$TEAM"}
-MODEL_ID="$(baseten model list --output json | python3 -c 'import json,sys; ms=[m for m in json.load(sys.stdin)["models"] if m.get("name")=="understudy-cad-vl-curve"]; print(ms[0]["id"] if ms else "")')"
+MODEL_ID="$(baseten model list --output json | python3 -c 'import json,sys; ms=[m for m in json.load(sys.stdin)["models"] if m.get("name")=="cadabra-vl-curve"]; print(ms[0]["id"] if ms else "")')"
 URL="https://model-$MODEL_ID.api.baseten.co/environments/production/sync/v1"
 case "$GPU" in L4) PRICE=0.85 ;; H100_40GB) PRICE=3.75 ;; *) PRICE=6.50 ;; esac
 
@@ -59,8 +59,8 @@ echo "== benchmarking ${CKPTS//,/ } on the parts of $FRONTIER_RUN"
 pids=()
 for C in ${CKPTS//,/ }; do
   N="${C#checkpoint-}"
-  UNDERSTUDY_BASE_URL="$URL" UNDERSTUDY_MODEL="$C" UNDERSTUDY_GPU_HOURLY="$PRICE" \
-    uv run python -m understudy.cad.bench --modality image --lanes specialist --only "$FRONTIER_RUN" --n 0 --shots 0 \
+  CADABRA_BASE_URL="$URL" CADABRA_MODEL="$C" CADABRA_GPU_HOURLY="$PRICE" \
+    uv run python -m cadabra.cad.bench --modality image --lanes specialist --only "$FRONTIER_RUN" --n 0 --shots 0 \
     --concurrency 12 --workers 2 --tag "ckpt$N-img" > "runs/ckpt$N-img.log" 2>&1 &
   pids+=($!)
 done

@@ -4,8 +4,8 @@
  "lanes": [
   {
    "lane": "specialist",
-   "label": "Understudy-CAD 4B (ours)",
-   "model": "understudy-cad-vl",
+   "label": "Cadabra 4B (ours)",
+   "model": "cadabra-vl",
    "reasoning_effort": null,
    "modality": "image",
    "best_of": 8,
@@ -71,8 +71,8 @@
   },
   {
    "lane": "specialist",
-   "label": "Understudy-CAD 4B (ours)",
-   "model": "understudy-cad-vl",
+   "label": "Cadabra 4B (ours)",
+   "model": "cadabra-vl",
    "reasoning_effort": null,
    "modality": "image",
    "best_of": 1,

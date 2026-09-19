@@ -5,7 +5,7 @@
 The training job grades itself on the held-out sheets at the end (training/vlm/bench_eval.py). This turns that file
 into runs/<ts>_<tag>/{results.jsonl,summary.json} so the leaderboard, the charts and the demo picker treat it like any
 other lane. Latency and cost are left out: the job generates in batches with transformers, so its per-part timing says
-nothing about serving. Run the deployed model through understudy/cad/bench.py for those.
+nothing about serving. Run the deployed model through cadabra/cad/bench.py for those.
 """
 
 from __future__ import annotations
@@ -17,9 +17,9 @@ import urllib.request
 from datetime import datetime
 from statistics import mean
 
-from understudy.config import ROOT
-from understudy.data import write_jsonl
-from understudy.stats import bootstrap_ci
+from cadabra.config import ROOT
+from cadabra.data import write_jsonl
+from cadabra.stats import bootstrap_ci
 
 
 def fetch(job_id: str, name: str) -> dict:
@@ -37,8 +37,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("job_id")
     ap.add_argument("--tag", default="ours-injob")
-    ap.add_argument("--label", default="Understudy-CAD 4B (ours)")
-    ap.add_argument("--model", default="understudy-cad-vl")
+    ap.add_argument("--label", default="Cadabra 4B (ours)")
+    ap.add_argument("--model", default="cadabra-vl")
     args = ap.parse_args()
     payload = fetch(args.job_id, "bench_eval/results.json")
     summary, rows = payload["summary"], payload["rows"]

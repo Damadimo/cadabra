@@ -3,7 +3,7 @@
 | File | Role |
 |---|---|
 | `train_vlm.py` | TRL `SFTTrainer`, prompt/completion rows, loss on the completion only, LoRA r=16/alpha=32 on the language model's q/k/v/o/gate/up/down (vision tower and merger frozen), bf16, gradient checkpointing, no packing |
-| `config_vlm.py` | Baseten job: `pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime`, 1x H100, 12 CPU, 96Gi, cache + checkpointing on, project `understudy-cad-vlm-sft` |
+| `config_vlm.py` | Baseten job: `pytorch/pytorch:2.7.0-cuda12.8-cudnn9-runtime`, 1x H100, 12 CPU, 96Gi, cache + checkpointing on, project `cadabra-vlm-sft` |
 | `run_vlm.sh` | `pip install -r requirements_vlm.txt`, then `python train_vlm.py` |
 | `requirements_vlm.txt` | Pinned versions shared by the job and the dry run |
 | `dry_run_vlm.sh` | Fake 4-row dataset, 2 CPU steps with `trl-internal-testing/tiny-Qwen3VLForConditionalGeneration`, merged save, then checks that merged/ equals base + adapter |
@@ -11,7 +11,7 @@
 ## Run
 
 ```bash
-uv run python -m understudy.cad.build_vlm          # writes data/{train,val}.jsonl + data/images/ here
+uv run python -m cadabra.cad.build_vlm          # writes data/{train,val}.jsonl + data/images/ here
 ./training/vlm/dry_run_vlm.sh                      # ~30 s once uv has the packages; ends with "VLM dry run OK"
 cd training/vlm && baseten train push --config config_vlm.py
 baseten train job logs --job-id <job_id> --tail
@@ -50,7 +50,7 @@ plan for 2–3 h and $15–20, or set `EPOCHS=1`.
 - Top level: the final adapter, the processor and `train_log.json` (loss and eval-loss history).
 - **`merged/`**: full bf16 weights (~9 GB), plus the base repo's own config, tokenizer, chat template and processor
   files. `preprocessor_config.json` is pinned to `IMAGE_PIXELS`. This is the vLLM model directory
-  (`deploy/vlm_ft/config.yaml`, `bt://understudy-cad-vlm-sft@<job_id>/merged`).
+  (`deploy/vlm_ft/config.yaml`, `bt://cadabra-vlm-sft@<job_id>/merged`).
 
 ```bash
 baseten train checkpoint list --job-id <job_id>    # "merged" sits next to checkpoint-N; wait for it to sync
@@ -86,7 +86,7 @@ reference (+0.5 when IoU >= 0.9; crash -0.2; no code -0.5), rollouts generated w
 ```sh
 ./training/vlm/dry_run_grpo_vlm.sh        # reward on known answers + 1 CPU step with a tiny Qwen3-VL (free)
 cd training/vlm && SFT_JOB_ID=<sft job> SFT_CHECKPOINT=checkpoint-<last> baseten train push --config config_grpo_vlm.py
-PROJECT=understudy-cad-vlm-grpo ./scripts/deploy_vlm.sh <grpo job> H100_40GB
+PROJECT=cadabra-vlm-grpo ./scripts/deploy_vlm.sh <grpo job> H100_40GB
 ```
 
 Only worth it with GPU time left after SFT + deploy + benchmark: time the first steps (~1 min/step expected) and

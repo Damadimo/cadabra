@@ -1,7 +1,7 @@
 """Render a part as a 2x2 drawing sheet: FRONT, TOP, RIGHT (orthographic, one shared scale) and ISOMETRIC.
 
-  uv run python -m understudy.cad.render --split bench --workers 12      # -> data/cad/img/<id>.png + index.json
-  uv run python -m understudy.cad.render --split train --workers 12
+  uv run python -m cadabra.cad.render --split bench --workers 12      # -> data/cad/img/<id>.png + index.json
+  uv run python -m cadabra.cad.render --split train --workers 12
 
 Views are rendered in the reference solid's own frame, so the axes in the picture are the axes the code builds in:
 FRONT looks along +Y (X right, Z up), TOP looks down -Z (X right, Y up), RIGHT looks along -X (Y right, Z up).

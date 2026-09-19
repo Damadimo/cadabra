@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 
-GEOMETRY_MODULE = __name__.rsplit(".", 1)[0] + ".geometry"  # works as understudy.cad.* and as training/cadcheck.*
+GEOMETRY_MODULE = __name__.rsplit(".", 1)[0] + ".geometry"  # works as cadabra.cad.* and as training/cadcheck.*
 
 
 def _worker_main(conn, module_name: str) -> None:

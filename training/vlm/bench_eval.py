@@ -4,8 +4,8 @@ Run by run_vlm.sh / run_grpo_vlm.sh after training exits (EVAL_BENCH=1, data/ben
 on the saved merged/ weights, so it can never cost them. Writes $BT_CHECKPOINT_DIR/bench_eval/results.json
 (summary + per-part rows with the code; synced like a checkpoint, so `baseten train checkpoint files` lists it) and
 prints the summary to the job log. The same geometry checker and success rule as
-understudy/cad/bench.py (code runs and aligned IoU >= 0.9). It is a safety net and an early read; the official numbers
-come from the deployed model via understudy/cad/bench.py.
+cadabra/cad/bench.py (code runs and aligned IoU >= 0.9). It is a safety net and an early read; the official numbers
+come from the deployed model via cadabra/cad/bench.py.
 
   python bench_eval.py <model dir or HF id>          # e.g. $BT_CHECKPOINT_DIR/merged, or the base model for comparison
 """

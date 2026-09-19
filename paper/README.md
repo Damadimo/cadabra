@@ -1,10 +1,10 @@
 # Paper
 
-`understudy.tex` — a short write-up of the task, data, training, grading and results.
+`cadabra.tex` — a short write-up of the task, data, training, grading and results.
 
 ```sh
 brew install tectonic      # once
-tectonic understudy.tex    # -> understudy.pdf
+tectonic cadabra.tex    # -> cadabra.pdf
 ```
 
 Figures in `figures/` are copies of `docs/*.png` plus one benchmark drawing sheet. Rebuild them and the numbers with:

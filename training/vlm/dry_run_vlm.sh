@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="$HERE/../../.dryrun/vlm"  # outside training/vlm: a job push uploads that whole folder
 rm -rf "$WORK" && mkdir -p "$WORK/data/images"
 cp "$HERE/train_vlm.py" "$HERE/vlm_common.py" "$HERE/bench_eval.py" "$WORK/"
-mkdir -p "$WORK/cadcheck" && cp "$HERE/../../understudy/cad/geometry.py" "$HERE/../../understudy/cad/pool.py" "$WORK/cadcheck/"
+mkdir -p "$WORK/cadcheck" && cp "$HERE/../../cadabra/cad/geometry.py" "$HERE/../../cadabra/cad/pool.py" "$WORK/cadcheck/"
 echo '"""geometry checker copy (dry run)"""' > "$WORK/cadcheck/__init__.py"
 PY=(uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" --with cadquery --with trimesh --with scipy python)
 cd "$WORK"

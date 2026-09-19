@@ -14,10 +14,10 @@ import collections
 import json
 import time
 
-from understudy.cad.data import load_split, normalized_code
-from understudy.cad.pool import CadPool
-from understudy.config import ROOT
-from understudy.data import write_jsonl
+from cadabra.cad.data import load_split, normalized_code
+from cadabra.cad.pool import CadPool
+from cadabra.config import ROOT
+from cadabra.data import write_jsonl
 
 CACHE = ROOT / "data" / "cache"
 

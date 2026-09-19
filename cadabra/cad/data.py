@@ -1,7 +1,7 @@
 """Load CAD-Coder (gudo7208/CAD-Coder, Apache-2.0; derived from Text2CAD/DeepCAD) and parse its specs.
 
 Each record: {"id", "source_id", "split", "spec", "gold_code", "n_parts", "stated_dims", "identity_transforms"}.
-Download the raw JSON files with `python -m understudy.cad.data --download`.
+Download the raw JSON files with `python -m cadabra.cad.data --download`.
 """
 
 from __future__ import annotations

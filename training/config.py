@@ -1,6 +1,6 @@
 """Baseten Training job, stage 1: LoRA SFT of Qwen3-4B-Instruct-2507 on spec→CadQuery pairs, one H100.
 
-  uv run python -m understudy.cad.build_sft         # writes data/train.jsonl, data/val.jsonl in this folder
+  uv run python -m cadabra.cad.build_sft         # writes data/train.jsonl, data/val.jsonl in this folder
   ./dry_run.sh                                       # 2 CPU steps with a tiny Qwen3 (catches config/data errors)
   cd training && baseten train push --config config.py
   baseten train job logs --job-id <job_id> --tail
@@ -37,4 +37,4 @@ training_job = TrainingJob(
     runtime=training_runtime,
 )
 
-training_project = TrainingProject(name="understudy-cad-sft", job=training_job)
+training_project = TrainingProject(name="cadabra-sft", job=training_job)

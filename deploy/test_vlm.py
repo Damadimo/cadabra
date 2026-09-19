@@ -1,8 +1,8 @@
 """Smoke-test a Baseten vLLM VLM deployment: one base64 PNG + text, streamed; prints TTFT, total latency, tok/s.
 
   set -a; . ./.env; set +a
-  UNDERSTUDY_BASE_URL=https://model-<model_id>.api.baseten.co/environments/production/sync/v1 \
-  UNDERSTUDY_MODEL=Qwen/Qwen3-VL-4B-Instruct \
+  CADABRA_BASE_URL=https://model-<model_id>.api.baseten.co/environments/production/sync/v1 \
+  CADABRA_MODEL=Qwen/Qwen3-VL-4B-Instruct \
     uv run python deploy/test_vlm.py [image.png] [--dry-run]
 
 Default image: /tmp/img2cad/montage_406.png if present, else a generated 1024x1024 PNG with a rectangle.
@@ -43,13 +43,13 @@ def image_data_url(path: str | None) -> tuple[str, str]:
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     url, src = image_data_url(args[0] if args else None)
-    model = os.getenv("UNDERSTUDY_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
+    model = os.getenv("CADABRA_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
     messages = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": url}}, {"type": "text", "text": PROMPT}]}]
     print(f"image: {src} ({len(url) // 1024} KiB as a data URL), model: {model}")
     if "--dry-run" in sys.argv:
         return
 
-    client = OpenAI(api_key=os.environ["BASETEN_API_KEY"], base_url=os.environ["UNDERSTUDY_BASE_URL"], timeout=900)
+    client = OpenAI(api_key=os.environ["BASETEN_API_KEY"], base_url=os.environ["CADABRA_BASE_URL"], timeout=900)
     print("served models:", [m.id for m in client.models.list().data])
 
     t0 = time.perf_counter()

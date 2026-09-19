@@ -1,10 +1,10 @@
 """Benchmark lanes on held-out specs: every lane gets the same prompt; the geometry checker grades every answer.
 
-  uv run python -m understudy.cad.bench --lanes kimi-k3,glm-5.3 --n 100 --shots 2 --tag pilot
-  uv run python -m understudy.cad.bench --lanes specialist,base-4b --n 500 --shots 0 --tag ours
-  uv run python -m understudy.cad.bench --lanes kimi-k3 --n 100 --retries 2 --tag k3-retries   # repair loop
+  uv run python -m cadabra.cad.bench --lanes kimi-k3,glm-5.3 --n 100 --shots 2 --tag pilot
+  uv run python -m cadabra.cad.bench --lanes specialist,base-4b --n 500 --shots 0 --tag ours
+  uv run python -m cadabra.cad.bench --lanes kimi-k3 --n 100 --retries 2 --tag k3-retries   # repair loop
 
-Lanes come from understudy.config.lanes() or are given inline as slug:effort (e.g. zai-org/GLM-5.3-Flash:low).
+Lanes come from cadabra.config.lanes() or are given inline as slug:effort (e.g. zai-org/GLM-5.3-Flash:low).
 Success = the code runs and the aligned IoU with the reference is at least 0.9. Writes runs/<time>_<tag>/.
 """
 
@@ -38,7 +38,7 @@ def resolve_lanes(spec: str) -> list[Lane]:
             out.append(known[item])
             continue
         if "/" not in item.partition(":")[0]:
-            print(f"skipping lane {item!r}: not configured (set UNDERSTUDY_BASE_URL for specialist/base-4b)")
+            print(f"skipping lane {item!r}: not configured (set CADABRA_BASE_URL for specialist/base-4b)")
             continue
         slug, _, effort = item.partition(":")
         key = slug.split("/")[-1].lower() + (f"@{effort}" if effort else "")

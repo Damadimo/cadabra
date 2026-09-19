@@ -16,12 +16,12 @@ from collections import defaultdict
 from pathlib import Path
 from statistics import mean
 
-from understudy.cad.pool import CadPool
-from understudy.cad.render import OUT as IMAGES
-from understudy.cad.render import image_path
-from understudy.cad.verify import combine
-from understudy.config import ROOT
-from understudy.data import read_jsonl
+from cadabra.cad.pool import CadPool
+from cadabra.cad.render import OUT as IMAGES
+from cadabra.cad.render import image_path
+from cadabra.cad.verify import combine
+from cadabra.config import ROOT
+from cadabra.data import read_jsonl
 
 SIGNALS = {
     "silhouette only (v1)": lambda c: c["silhouette"],

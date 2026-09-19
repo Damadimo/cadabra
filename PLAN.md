@@ -34,13 +34,13 @@ Three things only you can unblock (everything else is built, dry-run tested and 
 
 | Step | Command | Time |
 |---|---|---|
-| 0. Once Model APIs work again | `BASETEN_RPM=12 uv run python -m understudy.cad.bench --modality image --lanes moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high --n 0 --shots 2 --exclude 20260919-051617_sota-img --tag sota-img-rest` (other 300 parts) | ~40 min |
-| 1. Data (rebuilt after the renders finish) | `uv run python -m understudy.cad.build_vlm` (~30K rows) | 5 min |
+| 0. Once Model APIs work again | `BASETEN_RPM=12 uv run python -m cadabra.cad.bench --modality image --lanes moonshotai/Kimi-K3:high,zai-org/GLM-5.3-Flash:high --n 0 --shots 2 --exclude 20260919-051617_sota-img --tag sota-img-rest` (other 300 parts) | ~40 min |
+| 1. Data (rebuilt after the renders finish) | `uv run python -m cadabra.cad.build_vlm` (~30K rows) | 5 min |
 | 2. Smoke run (20 steps + 32-part eval) | `cd training/vlm && SMOKE=1 baseten train push --config config_vlm.py --job-name smoke` | ~15 min |
 | 3. Full run | `cd training/vlm && baseten train push --config config_vlm.py --job-name sft` (add `TIME_BUDGET_H=<h>` if the GPU window is fixed); `baseten train job logs --job-id <id> --tail`; the log ends with the 500-part benchmark summary (`[bench]`) | ~2–3 h |
 | 4. Deploy | `./scripts/deploy_vlm.sh <job_id> H100_40GB` (prints the .env lines) | 10–20 min |
 | 4b. If the job stops early or `merged` is missing | `./scripts/deploy_vlm.sh <job_id> H100_40GB checkpoint-<N>` (base + LoRA, also serves the base lane) | 10–20 min |
-| 5. Benchmark ours | `uv run python -m understudy.cad.bench --modality image --lanes specialist --n 0 --shots 0 --concurrency 16 --tag ours-img` (all 500 parts; `--only 20260919-051617_sota-img` = exactly the frontier's 200 if short on time) | ~10 min |
+| 5. Benchmark ours | `uv run python -m cadabra.cad.bench --modality image --lanes specialist --n 0 --shots 0 --concurrency 16 --tag ours-img` (all 500 parts; `--only 20260919-051617_sota-img` = exactly the frontier's 200 if short on time) | ~10 min |
 | 5b. Ours + verifier | same with `--best-of 8 --tag ours-img-bo8` | ~20 min |
 | 5c. Untuned base (LoRA deploy only) | `--lanes base-4b --tag base-img` | ~10 min |
 | 6. Compare | `uv run python scripts/leaderboard.py --latest sota-img,sota-img-rest,ours-img,ours-img-bo8,base-img --common --out-json data/demo/scoreboard.json` (every lane on identical parts), then `uv run python scripts/plot_results.py` and `uv run python scripts/pick_demo.py` | instant |

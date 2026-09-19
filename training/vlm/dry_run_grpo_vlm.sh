@@ -8,7 +8,7 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 WORK="$ROOT/.dryrun/grpo_vlm"  # outside training/vlm: a job push uploads that whole folder
 rm -rf "$WORK" && mkdir -p "$WORK/data/images" "$WORK/cadcheck"
 cp "$HERE/grpo_vlm.py" "$HERE/vlm_common.py" "$WORK/"
-cp "$ROOT/understudy/cad/geometry.py" "$ROOT/understudy/cad/pool.py" "$WORK/cadcheck/"
+cp "$ROOT/cadabra/cad/geometry.py" "$ROOT/cadabra/cad/pool.py" "$WORK/cadcheck/"
 echo '"""geometry checker copy (dry run)"""' > "$WORK/cadcheck/__init__.py"
 PY=(uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" --with cadquery --with trimesh --with scipy python)
 cd "$WORK"

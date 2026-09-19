@@ -15,11 +15,11 @@ import hashlib
 import json
 from pathlib import Path
 
-from understudy.cad.bench import infra_failed
-from understudy.cad.pool import CadPool
-from understudy.cad.render import OUT as IMAGES
-from understudy.config import PRETTY, ROOT
-from understudy.data import read_jsonl
+from cadabra.cad.bench import infra_failed
+from cadabra.cad.pool import CadPool
+from cadabra.cad.render import OUT as IMAGES
+from cadabra.config import PRETTY, ROOT
+from cadabra.data import read_jsonl
 
 REPLAYS = ROOT / "data" / "demo" / "replays"
 TEXT_ONLY = {"glm-5.3@high"}

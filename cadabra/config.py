@@ -97,11 +97,11 @@ def lanes() -> dict[str, Lane]:
         "kimi-k3": Lane("kimi-k3", "Kimi K3", "moonshotai/Kimi-K3", reasoning_effort=os.getenv("K3_EFFORT", "high")),
         "glm-5.3": Lane("glm-5.3", "GLM-5.3", "zai-org/GLM-5.3", reasoning_effort=os.getenv("GLM_EFFORT", "high")),
     }
-    url = os.getenv("UNDERSTUDY_BASE_URL")
+    url = os.getenv("CADABRA_BASE_URL")
     if url:
-        gpu = float(os.getenv("UNDERSTUDY_GPU_HOURLY", "6.50"))
+        gpu = float(os.getenv("CADABRA_GPU_HOURLY", "6.50"))
         out["specialist"] = Lane(
-            "specialist", "Understudy-CAD 4B (ours)", os.getenv("UNDERSTUDY_MODEL", "checkpoint-final"), base_url=url, gpu_hourly_usd=gpu
+            "specialist", "Cadabra 4B (ours)", os.getenv("CADABRA_MODEL", "checkpoint-final"), base_url=url, gpu_hourly_usd=gpu
         )
     # v0 baseline: the untuned base model. With a LoRA deployment it is served by the same vLLM server; with merged
     # weights (the drawing-sheet model) it is a separate deployment, so it can have its own URL.
@@ -109,9 +109,9 @@ def lanes() -> dict[str, Lane]:
     if base_url:
         out["base-4b"] = Lane(
             "base-4b",
-            os.getenv("UNDERSTUDY_BASE_LABEL", "Base model (untuned)"),
-            os.getenv("UNDERSTUDY_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507"),
+            os.getenv("CADABRA_BASE_LABEL", "Base model (untuned)"),
+            os.getenv("CADABRA_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507"),
             base_url=base_url,
-            gpu_hourly_usd=float(os.getenv("BASE_MODEL_GPU_HOURLY", os.getenv("UNDERSTUDY_GPU_HOURLY", "6.50"))),
+            gpu_hourly_usd=float(os.getenv("BASE_MODEL_GPU_HOURLY", os.getenv("CADABRA_GPU_HOURLY", "6.50"))),
         )
     return out

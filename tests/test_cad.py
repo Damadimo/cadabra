@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from understudy.cad import geometry as g
-from understudy.cad import prompts
-from understudy.data import read_jsonl
-from understudy.stats import bootstrap_ci, pct
+from cadabra.cad import geometry as g
+from cadabra.cad import prompts
+from cadabra.data import read_jsonl
+from cadabra.stats import bootstrap_ci, pct
 
 ROOT = Path(__file__).resolve().parent.parent
 PLATE = "import cadquery as cq\nr = cq.Workplane('XY').box(0.6, 0.375, 0.075, centered=False)\n"

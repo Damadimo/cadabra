@@ -16,9 +16,9 @@ import argparse
 from pathlib import Path
 from statistics import mean
 
-from understudy.cad.bench import infra_failed
-from understudy.config import ROOT
-from understudy.data import read_jsonl
+from cadabra.cad.bench import infra_failed
+from cadabra.config import ROOT
+from cadabra.data import read_jsonl
 
 CACHE = ROOT / "data" / "cad"
 

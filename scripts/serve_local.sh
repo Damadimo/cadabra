@@ -74,9 +74,9 @@ fi
 cat <<EOF
 
 == serving $MODEL on :$PORT. In another shell (or .env):
-UNDERSTUDY_BASE_URL=http://127.0.0.1:$PORT/v1
-UNDERSTUDY_MODEL=$MODEL
-UNDERSTUDY_GPU_HOURLY=0   # a laptop: no GPU bill to amortize
+CADABRA_BASE_URL=http://127.0.0.1:$PORT/v1
+CADABRA_MODEL=$MODEL
+CADABRA_GPU_HOURLY=0   # a laptop: no GPU bill to amortize
 
 EOF
 exec uv run --no-project --python 3.12 --with mlx-vlm python -m mlx_vlm.server --model "$MODEL" --port "$PORT" --max-tokens 2048 --max-num-seqs 8
