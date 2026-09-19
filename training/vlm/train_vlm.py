@@ -21,6 +21,7 @@ import json
 import os
 import shutil
 import time
+from pathlib import Path
 
 import torch
 from datasets import Dataset, Image, List
@@ -111,10 +112,13 @@ print(f"image budget {IMAGE_PIXELS} px -> {image_tokens} visual tokens per image
 train = to_dataset(drop_too_long(processor, train_rows, image_tokens, "train"))
 val = to_dataset(drop_too_long(processor, val_rows, image_tokens, "val")) if val_rows else None
 
+# Multi-GPU: run_vlm.sh starts one process per GPU with torchrun (NPROC>1); each holds a full copy on its own GPU (DDP).
+WORLD = int(os.getenv("WORLD_SIZE", "1"))
+LOCAL_RANK = int(os.getenv("LOCAL_RANK", "0"))
 model = AutoModelForImageTextToText.from_pretrained(
     MODEL_ID,
     dtype=torch.float32 if CPU_DRY_RUN else torch.bfloat16,
-    device_map="cpu" if CPU_DRY_RUN else "auto",
+    device_map="cpu" if CPU_DRY_RUN else ({"": LOCAL_RANK} if WORLD > 1 else "auto"),
     attn_implementation=os.getenv("ATTN_IMPL", "sdpa"),
 )
 # Gradient checkpointing + LoRA: the frozen embedding output must require grad for gradients to reach the adapters
@@ -129,9 +133,25 @@ peft_config = LoraConfig(
     lora_dropout=0.05,
     task_type="CAUSAL_LM",
 )
+# INIT_ADAPTER: keep training an existing adapter (e.g. a second epoch) instead of starting a new one. "auto" = the newest
+# adapter under $BT_LOAD_CHECKPOINT_DIR (config_vlm.py loads it when CONTINUE_JOB/CONTINUE_CHECKPOINT are set at push).
+INIT_ADAPTER = os.getenv("INIT_ADAPTER", "")
+if INIT_ADAPTER == "auto":
+    found = sorted(Path(os.getenv("BT_LOAD_CHECKPOINT_DIR", "/nonexistent")).rglob("adapter_config.json"))
+    if not found:
+        raise SystemExit("INIT_ADAPTER=auto but no adapter under $BT_LOAD_CHECKPOINT_DIR")
+    INIT_ADAPTER = str(found[-1].parent)
+if INIT_ADAPTER:
+    from peft import PeftModel
+
+    print(f"continuing adapter {INIT_ADAPTER}")
+    model = PeftModel.from_pretrained(model, INIT_ADAPTER, is_trainable=True)
+    peft_config = None
 
 args = SFTConfig(
     learning_rate=float(os.getenv("LR", "2e-4")),
+    data_seed=int(os.getenv("DATA_SEED", "42")),  # a continued epoch should see a new order
+    ddp_find_unused_parameters=False,
     num_train_epochs=float(os.getenv("EPOCHS", "2")),
     max_steps=int(os.getenv("MAX_STEPS", "-1")),
     per_device_train_batch_size=int(os.getenv("BATCH", "8")),
@@ -171,7 +191,13 @@ class TimeBudget(TrainerCallback):
             total_h = elapsed_h / 20 * state.max_steps
             print(f"[time] {elapsed_h * 180:.1f} s/step over 20 steps -> {state.max_steps} steps take ~{total_h:.2f} h"
                   + (f" (budget {self.hours} h: stops near step {int(self.hours / elapsed_h * 20)})" if self.hours and total_h > self.hours else ""), flush=True)
-        if self.hours and elapsed_h >= self.hours:
+        stop = bool(self.hours) and elapsed_h >= self.hours
+        if self.hours and torch.distributed.is_available() and torch.distributed.is_initialized():
+            # every rank must stop on the same step, or the next all-reduce hangs: rank 0 decides
+            flag = torch.tensor([int(stop)], device=torch.device("cuda", LOCAL_RANK) if torch.cuda.is_available() else "cpu")
+            torch.distributed.broadcast(flag, src=0)
+            stop = bool(flag.item())
+        if stop:
             print(f"[time] budget of {self.hours} h reached at step {state.global_step}/{state.max_steps}: stopping and saving", flush=True)
             control.should_training_stop = True
             control.should_save = True
@@ -208,13 +234,13 @@ print(
 )
 
 trainer.train()
-trainer.save_model(OUTPUT_DIR)  # final adapter + processor at the top level, as in ../train.py
+trainer.save_model(OUTPUT_DIR)  # final adapter + processor at the top level, as in ../train.py (main process only)
 
-with open(os.path.join(OUTPUT_DIR, "train_log.json"), "w") as f:
-    json.dump(trainer.state.log_history, f, indent=1)
-print(f"Training complete. LoRA adapters saved to {OUTPUT_DIR}")
-
-if MERGE_AT_END:
-    save_merged(trainer.model, os.path.join(OUTPUT_DIR, "merged"))
+if trainer.is_world_process_zero():
+    with open(os.path.join(OUTPUT_DIR, "train_log.json"), "w") as f:
+        json.dump(trainer.state.log_history, f, indent=1)
+    print(f"Training complete. LoRA adapters saved to {OUTPUT_DIR}")
+    if MERGE_AT_END:
+        save_merged(trainer.accelerator.unwrap_model(trainer.model), os.path.join(OUTPUT_DIR, "merged"))
 # The benchmark eval (EVAL_BENCH=1) runs after this script exits, as its own process (run_vlm.sh -> bench_eval.py): its
 # grading workers are spawned, and a spawned child re-imports __main__, which here is this whole training script.

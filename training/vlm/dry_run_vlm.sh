@@ -80,8 +80,16 @@ export CPU_DRY_RUN=1 MERGE_AT_END=1 TOKENIZERS_PARALLELISM=false
 export BASE_MODEL=trl-internal-testing/tiny-Qwen3VLForConditionalGeneration
 export MAX_STEPS=2 BATCH=2 GRAD_ACCUM=1 SAVE_STEPS=1 LOG_STEPS=1 LR=5e-3 BT_CHECKPOINT_DIR="$WORK/ckpt"
 export EVAL_BENCH=1 EVAL_N=2 EVAL_BATCH=2 EVAL_MAX_NEW=16 REWARD_WORKERS=2
-"${PY[@]}" train_vlm.py
+if [ "${DRY_NPROC:-1}" -gt 1 ]; then  # DDP code path (gloo on CPU), as run_vlm.sh does with NPROC>1
+  uv run --no-project --python "${DRY_PY:-3.12}" --with-requirements "$HERE/requirements_vlm.txt" --with cadquery --with trimesh --with scipy \
+    torchrun --nnodes=1 --nproc_per_node="$DRY_NPROC" --master_addr=127.0.0.1 --master_port=29511 train_vlm.py  # laptop: explicit loopback
+else
+  "${PY[@]}" train_vlm.py
+fi
 "${PY[@]}" bench_eval.py "$WORK/ckpt/merged"  # as run_vlm.sh does after training
+# continuing an adapter (a second epoch): one more step from checkpoint-2, new data order, no merge
+INIT_ADAPTER="$WORK/ckpt/checkpoint-2" MAX_STEPS=1 DATA_SEED=43 MERGE_AT_END=0 BT_CHECKPOINT_DIR="$WORK/ckpt_continue" \
+  "${PY[@]}" train_vlm.py 2>&1 | grep -E "continuing adapter|Training complete|Error|Traceback"
 
 # merged/ must load on its own, keep the pinned image budget, and equal base + LoRA adapter.
 "${PY[@]}" - <<'EOF'

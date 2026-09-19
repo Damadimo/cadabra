@@ -14,7 +14,11 @@ nvidia-smi || true
 df -h /dev/shm || true  # train_vlm.py uses 4 dataloader workers only when /dev/shm has >= 8 GiB
 ls data/images | wc -l
 
-python train_vlm.py
+if [ "${NPROC:-1}" -gt 1 ]; then
+  torchrun --standalone --nproc_per_node="$NPROC" train_vlm.py   # DDP: one process per GPU
+else
+  python train_vlm.py
+fi
 
 # Held-out benchmark on the saved merged weights, as a separate process (its grading workers are spawned).
 if [ "${EVAL_BENCH:-0}" = "1" ] && [ -f "${BT_CHECKPOINT_DIR:-./checkpoints}/merged/config.json" ]; then

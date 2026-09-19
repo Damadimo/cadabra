@@ -45,11 +45,12 @@ training_runtime = Runtime(
         "MAX_COMPLETION": "1024",  # reference programs: p95 529 tokens, max 1,101
         "TEMPERATURE": "1.0",
         "SUCCESS_BONUS": "0.5",  # reward = IoU (+0.5 when IoU >= 0.9); crash -0.2; no code -0.5
-        "MAX_STEPS": "60",  # time the first steps and scale this to the GPU time left
+        "MAX_STEPS": os.environ.get("MAX_STEPS", "60"),  # time the first steps and scale this to the GPU time left
         "SAVE_STEPS": "10",
         "REWARD_WORKERS": "12",
         "MERGE_AT_END": "1",
-        "EVAL_BENCH": "1",  # held-out sheets, greedy, graded after saving -> bench_eval/results.json
+        "EVAL_BENCH": os.environ.get("EVAL_BENCH", "1"),  # held-out sheets, greedy, graded after saving -> bench_eval/results.json
+        "EVAL_N": os.environ.get("EVAL_N", "500"),
         **_hf,
     },
     cache_config=CacheConfig(enabled=True),
