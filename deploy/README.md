@@ -20,7 +20,7 @@ Because nothing deployed, the image test, latency and cold start below are **not
 | File | What |
 |---|---|
 | `vlm_base/config.yaml` | Untuned `Qwen/Qwen3-VL-4B-Instruct` from Hugging Face (pinned commit, BDN-mirrored), vLLM `v0.29.0-cu129`, L4 |
-| `vlm_ft/config.yaml` | Our merged fine-tune from a Baseten Training checkpoint (`bt://` weights). Placeholders: `TRAINING_PROJECT_NAME`, `TRAINING_JOB_ID` |
+| `vlm_ft/config.yaml` | Our merged fine-tune, pulled from the training job by `training_checkpoints`. Placeholder: `TRAINING_JOB_ID` |
 | `vlm_lora/config.yaml` | Base model + our LoRA adapter from any checkpoint (e.g. `checkpoint-600` if the job is stopped early). Serves both `Qwen/Qwen3-VL-4B-Instruct` (base lane) and `cadabra-vl` (ours) on one endpoint. `./scripts/deploy_vlm.sh <job_id> <gpu> <checkpoint>` fills it |
 | `test_vlm.py` | Streams one chat completion with a base64 PNG and prints TTFT, total latency and tok/s |
 
@@ -29,7 +29,7 @@ Because nothing deployed, the image test, latency and cold start below are **not
 ```sh
 cd ~/cadabra
 baseten model push --dir deploy/vlm_base --wait --tail      # base: model "cadabra-vlm-base"
-# after training: fill the bt:// line in vlm_ft/config.yaml, then
+# after training: fill TRAINING_JOB_ID in vlm_ft/config.yaml (./scripts/deploy_vlm.sh does it), then
 baseten train checkpoint list --job-id <TRAINING_JOB_ID>    # checkpoint ID must be "merged" and fully synced
 baseten model push --dir deploy/vlm_ft --wait --tail        # ours: model "cadabra-vl"
 baseten model list                                          # model IDs
@@ -75,20 +75,25 @@ vLLM v0.29.0 (`vllm/model_executor/models/qwen3_vl.py`): `Qwen3VLForConditionalG
 or merger need `--enable-tower-connector-lora` (`supports_tower_connector_lora = True`). One deployment can serve base
 and fine-tune side by side, which fits the current `base-4b` / `specialist` lanes:
 
-`vlm_lora/config.yaml` does this: base weights from the pinned HF commit at `/models/qwen3-vl-4b`, the adapter from
-`bt://cadabra-vlm-sft@<job_id>/<checkpoint>` at `/models/adapter`, and `--enable-lora --max-lora-rank 64
---lora-modules cadabra-vl=<folder holding adapter_config.json>`. Our adapters only touch the language model.
-
-Not yet run on Baseten (deploys are blocked). LoRA adds per-token overhead compared with merged weights. `baseten train checkpoint deploy` only
-deploys LoRA checkpoints and is documented for LLMs, so write the config by hand for the VLM.
+`vlm_lora/config.yaml` does this: base weights from the pinned HF commit at `/models/qwen3-vl-4b`, the adapter
+downloaded by `training_checkpoints` into `/tmp/training_checkpoints/<job id>/rank-0/<checkpoint>/`, and
+`--enable-lora --max-lora-rank 64 --lora-modules cadabra-vl=<folder holding adapter_config.json>`. Our adapters only
+touch the language model. One `training_checkpoints` entry per checkpoint mirrors several adapters into one
+deployment, which is how `scripts/learning_curve.sh` benchmarks a whole run from a single endpoint. LoRA adds
+per-token overhead compared with merged weights. `baseten train checkpoint deploy` only deploys LoRA checkpoints and
+is documented for LLMs, so write the config by hand for the VLM.
 
 ## Gotchas
 
-- **The account needs a payment method before any deploy** (see above). Training GPU capacity is also not enabled yet.
-- `bt://<project>[@<job_id>|latest][/<checkpoint>]`: the checkpoint is the directory name under `$BT_CHECKPOINT_DIR`.
-  Baseten authenticates it automatically. Wait until the checkpoint has synced. Never delete the training job or
-  project, because the deployment reads its weights from there.
+- **The account needs a payment method before any deploy.**
+- **Use `training_checkpoints`, not `bt://` weight sources.** The image builder's truss 0.18.30 rejects the `bt://`
+  scheme ("Unsupported source scheme"); `training_checkpoints` (a `training_job_id` plus `paths: [rank-0/<name>/]`)
+  downloads the checkpoint into `download_folder` before the server starts, which is what `baseten train checkpoint
+  deploy` does. Wait until the checkpoint has synced, and never delete the training job or project, because the
+  deployment reads its weights from there.
   Sources: docs.baseten.co/development/model/bdn#baseten-training and docs.baseten.co/training/deployment.
+- **Re-pushing does not move the production environment by itself**: pass `--environment production`, or promote the
+  deployment, or the endpoint keeps serving the previous (possibly failed) build.
 - The `merged/` dir must be a complete HF dir in bf16: `save_pretrained` for the model **and** the processor.
   vLLM loads the image processor and chat template from it.
 - Image budget: Qwen3-VL uses 1 token per 32×32 px. A 1024×512 montage is about 512 tokens and 1024×1024 about 1024.

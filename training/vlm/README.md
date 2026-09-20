@@ -50,7 +50,7 @@ plan for 2–3 h and $15–20, or set `EPOCHS=1`.
 - Top level: the final adapter, the processor and `train_log.json` (loss and eval-loss history).
 - **`merged/`**: full bf16 weights (~9 GB), plus the base repo's own config, tokenizer, chat template and processor
   files. `preprocessor_config.json` is pinned to `IMAGE_PIXELS`. This is the vLLM model directory
-  (`deploy/vlm_ft/config.yaml`, `bt://cadabra-vlm-sft@<job_id>/merged`).
+  (`deploy/vlm_ft/config.yaml` pulls `rank-0/merged/` of the job with `training_checkpoints`).
 
 ```bash
 baseten train checkpoint list --job-id <job_id>    # "merged" sits next to checkpoint-N; wait for it to sync
@@ -91,3 +91,20 @@ PROJECT=cadabra-vlm-grpo ./scripts/deploy_vlm.sh <grpo job> H100_40GB
 
 Only worth it with GPU time left after SFT + deploy + benchmark: time the first steps (~1 min/step expected) and
 keep it only if the benchmark improves on the same parts (`leaderboard.py --common`).
+
+## Scoring saved checkpoints without deploying them
+
+`eval_sweep.py` grades a list of already-saved LoRA checkpoints with the harness `bench_eval.py` uses (the same 500
+held-out sheets, greedy, the same geometry checker), so the numbers sit beside the in-job evals of the runs that
+produced them. Baseten mirrors every named checkpoint into `$BT_LOAD_CHECKPOINT_DIR`; the base model is loaded once
+per GPU process and each adapter is attached, graded and unloaded again.
+
+```sh
+./training/vlm/dry_run_eval_sweep.sh      # two fake adapters on a tiny Qwen3-VL, CPU (free)
+cd training/vlm && SWEEP="<job>:checkpoint-10,<job>:checkpoint-20,..." GPUS=4 baseten train push --config config_eval_sweep.py --team <team>
+```
+
+Results land in `$BT_CHECKPOINT_DIR/bench_eval/<job>-rank-0-<checkpoint>.json` and one `[sweep] <name> {...}` line per
+checkpoint in the log. Include a checkpoint whose score you already know: it has to come back the same, or the sweep
+is measuring something else. `scripts/import_job_eval.py` pulls any of these into `runs/` for the leaderboard.
+

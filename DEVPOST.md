@@ -1,7 +1,5 @@
 # Devpost draft: Cadabra
 
-_Fill the `[…]` placeholders from `runs/<ours>/summary.md` and `scripts/leaderboard.py` before submitting._
-
 ## Tagline
 A 4B model we post-trained on Baseten reads engineering drawings into CAD code and beats frontier models at it,
 graded by the geometry itself.
@@ -23,11 +21,18 @@ what a small specialized model should own.
 ## How we built it (on Baseten)
 - **Model APIs** for the frontier baselines (Kimi K3 and GLM-5.3 Flash, both vision models), at high reasoning effort
   and with two worked examples each. Our model gets none.
-- **Training Jobs on an H100**: LoRA SFT (rank 64) of Qwen3-VL-4B-Instruct on 30,260 rendered drawing sheets, two epochs (one H100, then four) from
-  CAD-Coder (Apache-2.0), weighted toward the medium and complex parts where frontier models fail. Adapters on the
-  language model only, loss on the code only, 1,024 visual tokens per sheet.
-- **Deployment**: merged weights served by vLLM on Baseten straight from the training checkpoint (`bt://` weights);
-  a second config serves base + LoRA from any intermediate checkpoint, which also gives us the untuned baseline.
+- **Training Jobs**: LoRA SFT (rank 64) of Qwen3-VL-4B-Instruct on 30,260 rendered drawing sheets from CAD-Coder
+  (Apache-2.0), weighted toward the medium and complex parts where frontier models fail. Adapters on the language
+  model only, loss on the code only, 1,024 visual tokens per sheet. Epoch 1 on one H100 (2.9 h), then epoch 2 on four
+  H100s with DDP (55 min), picked up from the first epoch's saved adapter with `LoadCheckpointConfig` rather than
+  restarted. A third job ran GRPO on the geometry reward, and a fourth did nothing but grade six saved checkpoints,
+  one process per GPU — an eval sweep for the price of one job instead of a deployment per checkpoint.
+- **Deployment**: merged weights served by vLLM straight from the training checkpoint (`training_checkpoints`, no
+  weight copy in between); a second config serves base + several LoRA checkpoints from **one** deployment, which is
+  how we got the untuned baseline and the learning curve without paying for four endpoints.
+- **Checkpointing and cache** kept the 8.3 GiB merged export and the base-model download off the critical path between
+  the four jobs; `baseten train capacity describe` told us when the extra H100s landed, and the second epoch was
+  reconfigured from one GPU to four in a single push.
 - **Grader**: sandboxed CadQuery (import allowlist, no file IO, per-task process timeout) and exact OpenCascade
   boolean IoU against the reference solid, aligned over the 24 axis rotations. Success = code runs and IoU ≥ 0.9.
 - **Baseten Switch** routed our Claude Code sessions to open models while we built.
