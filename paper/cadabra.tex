@@ -218,6 +218,35 @@ every alternative.}
 \label{fig:cost}
 \end{figure}
 
+\section{Reinforcement learning on the geometry reward did not help}
+
+The grader is an exact, automatic reward, so the obvious next step is to optimise it directly. We ran GRPO on top of
+the SFT model: 8 samples per sheet, 64 rollouts per step, 60 steps on four H100s, reward = aligned IoU, $+0.5$ when
+IoU $\ge 0.9$, $-0.2$ for a program that crashes and $-0.5$ for an answer with no code in it.
+
+It worked as an optimiser and failed as a method. Mean training reward rose from 0.89 to 1.2 and the share of correct
+rollouts from 39\% to 70\%, but held-out accuracy fell. To see whether a shorter run would have helped, we graded
+every saved checkpoint, and the SFT checkpoint they all start from, in a single eval-only training job that runs the
+benchmark harness on each (Figure~\ref{fig:rl}). The control reproduces the SFT run's own score within two parts
+(76.0\% here against the 75.6\% that run reported), so the comparison is sound.
+
+Accuracy is already below the starting point after ten steps and never returns. The loss is almost entirely on medium
+parts: 56.3\% $\rightarrow$ 48.7\% after ten steps, then flat near 42\%. Simple parts, where the model was already
+right 92\% of the time, barely move, and complex parts stay inside their noise. We did not ship it. One explanation
+that fits the shape of the curve, though we did not test it: two thirds of the sheets are simple ones the model
+already solves, so most rollout groups have near-identical rewards and contribute no gradient, while the groups that
+do carry signal are the mixed medium parts --- exactly where entropy collapsed (0.25 $\rightarrow$ 0.09 within the
+run) and accuracy fell. A prompt set weighted toward parts the model gets right only sometimes would be the first
+thing to try with more GPU time.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.78\textwidth]{rl_curve}
+\caption{Every saved GRPO checkpoint, graded on the same 500 held-out sheets with the same harness as the SFT model
+at step 0.}
+\label{fig:rl}
+\end{figure}
+
 \section{Did it overfit, or memorise the benchmark?}
 
 Three checks.

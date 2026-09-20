@@ -49,6 +49,15 @@ what a small specialized model should own.
 [200/500] held-out parts, bootstrap 95% CIs. Rows where an API returned no answer (e.g. 402s) are left out and listed,
 never scored as wrong answers.
 
+## What we tried that did not work
+- **GRPO on the geometry reward.** The grader is an exact reward, so optimising it directly was the obvious next
+  step: 64 rollouts per step, 60 steps on four H100s. Training reward rose 0.89 → 1.2 and correct rollouts 39% → 70%,
+  and held-out accuracy still fell. We graded every saved checkpoint in one eval-only Baseten job (with the SFT
+  checkpoint as a control) and found accuracy already below the starting point after ten steps, almost all of it on
+  medium parts. We shipped the supervised model and wrote the negative result up instead of burying it.
+- **Edges as a verifier signal.** Matching rendered edges scored worse than silhouette overlap (AUC 0.81 vs 0.96), so
+  it is reported but not used for ranking.
+
 ## Challenges
 - **The public data was wrong in places.** We ran all ~16K reference programs: 14% of the official test split's
   references contradict their own spec, some ignore the spec's rotations, and some even wrote files to disk. We

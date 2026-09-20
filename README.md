@@ -90,6 +90,15 @@ one epoch → **77.0% after two**, vs GLM-5.3 Flash 65% and Kimi K3 61%; on medi
 
 ![learning curve](docs/learning_curve.png)
 
+**RL on the geometry reward did not help.** The grader is an exact reward, so we ran GRPO on top of the SFT model
+(8 samples per sheet, 64 rollouts per step, 60 steps on four H100s). Training reward rose 0.89 → 1.2 and correct
+rollouts 39% → 70%, but held-out accuracy fell. Grading every saved checkpoint with the same harness (one eval-only
+training job, SFT checkpoint included as a control and reproducing its own score within two parts) shows the loss
+lands almost entirely on medium parts — 56.3% → 48.7% after ten steps, then flat near 42% — and never recovers. Not
+shipped. Details in the [paper](paper/cadabra.pdf).
+
+![GRPO checkpoints](docs/rl_curve.png)
+
 **The verifier helps any model.** Best-of-4 with render-and-compare on the 65 medium/complex parts: Kimi K3 28% → 48%
 ($252 per 1,000 parts), GLM-5.3 Flash 32% → 46%. Text specs for comparison: Kimi K3 95.0%,
 GLM-5.3 87.5% (40 parts, zero-shot). The full timeline, dead ends included, is in [WORKLOG.md](WORKLOG.md).
