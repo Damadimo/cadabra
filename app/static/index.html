@@ -60,7 +60,7 @@
   .mark { font-weight: 600; }
   .mark.ok { color: var(--green-deep); }
   .mark.no { color: var(--bad); }
-  .mark.truth { color: #D98FD6; }
+  .mark.truth { color: #E5342A; }  /* the same red the reference is drawn in */
   .iou { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 430px; max-width: 92vw; background: var(--surface);
             border-left: 1px solid var(--line); padding: 18px; overflow: auto; z-index: 60; box-shadow: -12px 0 30px rgba(16,21,17,.08); }
@@ -238,7 +238,9 @@ const num = (x, d = 1) => (x == null ? "–" : Number(x).toFixed(d));
 const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
 const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)));
 const loader = new STLLoader();
-const OURS = 0x10b85a, TRUTH = 0x8a9a8e, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
+// The reference is red against the green prediction: ghosted over it, whatever is only red is volume the model
+// missed and whatever is only green is volume it invented, which is what the IoU is counting.
+const OURS = 0x10b85a, TRUTH = 0xE5342A, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
 
 class Viewer {
   constructor(el, color, zoom = 1.12) {  // zoom = margin left around the part
@@ -307,7 +309,7 @@ class Viewer {
       g.dispose();  // the edge geometry is its own; the solid one is not shown
     } else {
       this.target = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-        color: TRUTH, metalness: 0.05, roughness: 0.65, transparent: mode === "ghost", opacity: mode === "ghost" ? 0.34 : 1,
+        color: TRUTH, metalness: 0.05, roughness: 0.65, transparent: mode === "ghost", opacity: mode === "ghost" ? 0.46 : 1,
         depthWrite: mode !== "ghost", side: THREE.DoubleSide,
       }));
     }
@@ -464,7 +466,7 @@ async function select(i) {
   stage.clear();
   const overlay = $("#overlay").checked;
   $("#stagehint").textContent = c.truth ? "the dataset's reference solid"
-    : overlay ? "prediction (solid) with the reference ghosted over it" : "prediction only";
+    : overlay ? "prediction solid, reference ghosted over it in red" : "prediction only";
   $("#stagestats").innerHTML = c.truth
     ? `${c.stats ? c.stats.n_faces + " faces · what every model is scored against" : ""}`
     : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B4482C">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
