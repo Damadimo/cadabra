@@ -1,4 +1,3 @@
 node_modules/
 .next/
 out/
-public/data/      # 36 MB built by scripts/export_static.py, deployed not committed
