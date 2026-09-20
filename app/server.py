@@ -157,6 +157,11 @@ def index() -> FileResponse:
     return FileResponse(STATIC / "index.html")
 
 
+@app.get("/how-it-works")
+def how_it_works() -> FileResponse:
+    return FileResponse(STATIC / "how-it-works.html")
+
+
 @app.get("/api/config")
 def config() -> dict:
     return {

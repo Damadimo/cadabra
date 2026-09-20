@@ -5,38 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cadabra</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/style.css">
 <style>
-    :root {
-    --bg: #F5F8F4; --surface: #FFFFFF; --inset: #FAFCF9; --line: #E1EADD; --line-2: #CBD8C6;
-    --ink: #101511; --ink-2: #4D584E; --muted: #74806F; --green: #19E76E; --green-deep: #00B86B;
-    --pink: #FFA9FD; --bad: #B4482C;
-    --mono: ui-monospace, "SFMono-Regular", "Chivo Mono", "IBM Plex Mono", Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14.5px/1.55 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
-  h1, h2, h3 { font-weight: 500; letter-spacing: -.025em; margin: 0; }
   h1 { font-size: 21px; }
   h2 { font-size: 16px; }
   h3 { font-size: 13.5px; }
   .label { font: 400 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .01em; }
   .muted { color: var(--muted); }
-  header { padding: 20px 32px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
-  header .sub { color: var(--ink-2); font-size: 13.5px; max-width: 620px; }
+  header { border-bottom: 1px solid var(--line); background: var(--g1); }
+  header .inner { max-width: 1440px; margin: 0 auto; padding: 16px 40px; display: flex; align-items: center; gap: 20px; }
+  header .sub { color: var(--muted); font-size: 13px; max-width: 430px; line-height: 1.5; }
   nav { margin-left: auto; display: flex; gap: 8px; }
-  nav button { background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 999px; padding: 7px 18px; font-size: 13.5px; }
-  nav button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
-  main { padding: 22px 32px 56px; display: grid; gap: 20px; max-width: 1560px; }
+  nav button, nav a { background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 999px; padding: 7px 18px; font-size: 13.5px; }
+  nav a { text-decoration: none; white-space: nowrap; transition: border-color .15s; }
+  nav a:hover { border-color: var(--ink); }
+  nav button.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  main { padding: 36px 40px 80px; display: grid; gap: 36px; max-width: 1440px; margin: 0 auto; width: 100%; }
   .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  select, button, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 16px; }
+  select, button, textarea { font: inherit; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; }
   textarea { border-radius: 12px; }
   button { cursor: pointer; transition: border-color .15s, background .15s; }
   button:hover { border-color: var(--ink); }
-  button.primary { background: var(--green); border-color: var(--green); color: #05220F; font-weight: 500; }
+  button.primary { background: var(--green); border-color: var(--green); color: var(--on-accent); font-weight: 500; }
   button.primary:hover { background: var(--green-deep); border-color: var(--green-deep); }
   button:disabled { opacity: .45; cursor: default; }
   textarea { width: 100%; min-height: 110px; font: 12px/1.5 var(--mono); resize: vertical; padding: 12px 14px; }
   label.check { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 13.5px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; min-width: 0; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; min-width: 0; }
   .split { display: grid; grid-template-columns: minmax(260px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
   /* Compare: the drawing sets the height of the row -- it keeps its own square aspect, so no band of empty card under
      it -- and the stage stretches to meet it, so neither tile ends short of the other. A wider left column therefore
@@ -46,7 +41,7 @@
   /* flex-basis 0, or the canvas's own size counts as content height and each resize grows the tile again */
   .split.flush .stage { flex: 1 1 0; height: auto; min-height: 320px; }
   @media (max-width: 1020px) { .split { grid-template-columns: 1fr; } }
-  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; display: block; }
+  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--g1); display: block; }
 
   .dropdown { position: relative; }
   .model-btn { display: inline-flex; align-items: center; gap: 9px; max-width: 460px; }
@@ -55,23 +50,23 @@
   .menu button { display: flex; width: 100%; align-items: center; gap: 9px; border: 0; background: transparent; border-radius: 10px;
                  padding: 9px 11px; text-align: left; font-size: 13.5px; }
   .menu button:hover { background: var(--inset); }
-  .menu button.on { background: var(--ink); color: #F5F8F4; }
-  .menu button.on .iou { color: #C9D6CB; }
+  .menu button.on { background: var(--ink); color: var(--on-ink); }
+  .menu button.on .iou { color: var(--g6); }
   .mark { font-weight: 600; }
   .mark.ok { color: var(--green-deep); }
   .mark.no { color: var(--bad); }
-  .mark.truth { color: #E5342A; }  /* the same red the reference is drawn in */
+  .mark.truth { color: var(--truth); }  /* the same red the reference is drawn in */
   .iou { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
   .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 430px; max-width: 92vw; background: var(--surface);
             border-left: 1px solid var(--line); padding: 18px; overflow: auto; z-index: 60; box-shadow: -12px 0 30px rgba(16,21,17,.08); }
   .drawer .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
   .drawer .row:hover { background: var(--inset); }
-  .drawer .row.on { background: #F1F8F2; }
+  .drawer .row.on { background: var(--accent-wash); }
   .drawer .row .meta { font: 11px var(--mono); color: var(--muted); }
   .drawer .row .marks { margin-left: auto; display: flex; gap: 6px; }
   .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
   .dot.ok { background: var(--green-deep); } .dot.no { background: var(--bad); } .dot.na { background: var(--line-2); }
-  .filters button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .filters button.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
   .backdrop { position: fixed; inset: 0; background: rgba(16,21,17,.18); z-index: 50; }
   input[type=search] { font: inherit; width: 100%; border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 14px; }
   .icon { padding: 8px 13px; }
@@ -82,22 +77,24 @@
   .chip.ok .mark { color: var(--green-deep); }
   .chip.no .mark { color: var(--bad); }
   .chip.truth { border-color: var(--pink); }
-  .chip.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
   .chip.on .mark { color: var(--green); }
-  .chip.on.no .mark { color: #FF9B78; }
+  .chip.on.no .mark { color: var(--danger-bright); }
   .chip .iou { font: 11.5px var(--mono); opacity: .7; }
-  .stage { height: 470px; border-radius: 14px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 14px; }
+  .stage { height: 470px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 18px; }
   .stage canvas, .viewer canvas { display: block; width: 100%; height: 100%; }
   .stage .hint, .viewer .hint { position: absolute; left: 12px; bottom: 10px; font: 11px var(--mono); color: var(--muted); pointer-events: none; }
   .viewer { height: 190px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
   .pill { display: inline-block; white-space: nowrap; font-size: 12px; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); }
-  .pill.ok { color: #06682F; border-color: var(--green-deep); background: #ECFCF2; }
-  .pill.no { color: var(--bad); border-color: #E8CCC2; background: #FDF2EE; }
+  .pill.ok { color: var(--accent-deep); border-color: var(--green-deep); background: var(--accent-wash); }
+  .pill.no { color: var(--bad); border-color: var(--danger-line); background: var(--danger-wash); }
   .stats { font: 12.5px/1.5 var(--mono); color: var(--ink-2); }
   .stats b { font-weight: 600; }
   .slug { font: 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-  .foot { font: 11px/1.5 var(--mono); color: var(--muted); margin-top: 10px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .foot { font: 11px/1.6 var(--mono); color: var(--muted); margin-top: 16px; opacity: .8; }
+  /* four lanes read as a balanced 2x2 rather than 3 across with one stranded underneath */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  @media (min-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .cards .card { display: grid; gap: 9px; align-content: start; }
   .cards .card.ours { border-color: var(--green-deep); }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -114,38 +111,40 @@
   th:first-child, td:first-child { text-align: left; }
   th { font: 400 11px var(--mono); color: var(--muted); }
   td { font-size: 13.5px; }
-  tbody tr.ours td { background: #F3FCF6; font-weight: 500; }
+  tbody tr.ours td { background: var(--accent-wash); font-weight: 500; }
   .scroll { overflow-x: auto; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <header>
+  <div class="inner">
   <h1>Cadabra</h1>
-  <span class="sub">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program that builds the part. Every answer is executed and compared with the reference solid.</span>
+  <span class="sub">Engineering drawing in, CAD program out.</span>
   <nav>
     <button id="tab-compare" class="on">Compare</button>
     <button id="tab-race">Live race</button>
+    <a href="/how-it-works">How it works</a>
   </nav>
+  </div>
 </header>
 
 <main>
-  <section id="compare" class="card">
+  <section id="compare">
     <div class="bar">
       <button id="prev" class="icon" title="previous part (←)">←</button>
       <select id="parts"></select>
       <button id="next" class="icon" title="next part (→)">→</button>
       <button id="partsBtn">Parts <span class="iou" id="partsCount" style="margin:0"></span></button>
       <button id="raceThis">Race this part live</button>
-      <span class="label" id="partnote"></span>
     </div>
 
-    <div class="split flush" style="margin-top:16px">
+    <div class="split flush" style="margin-top:22px">
       <div class="card sheet" id="sheetcard">
-        <div class="label">input · drawing sheet</div>
-        <h3 style="margin:6px 0 4px" id="parttitle"></h3>
-        <div class="label" style="margin-bottom:10px" id="bboxline"></div>
+        <h3 style="margin:0 0 5px" id="parttitle"></h3>
+        <div class="label" style="margin-bottom:16px" id="bboxline"></div>
         <img id="sheet" alt="drawing sheet">
+        <div class="foot" id="partnote"></div>
       </div>
 
       <div class="card">
@@ -157,16 +156,15 @@
           <label class="check"><input type="checkbox" id="overlay" checked> overlay reference</label>
           <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
           <button id="progBtn" class="icon">Program</button>
-          <span class="stats" id="stagestats"></span>
         </div>
+        <div class="stats" id="stagestats" style="margin-top:14px"></div>
         <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
-        <div class="foot">IoU is volumetric overlap with the reference solid, maximised over the 24 axis rotations; a part counts as
-          correct at 0.9 or above. Time, cost and tokens are what that model actually used on this part in the benchmark run.</div>
+        <div class="foot">Volumetric overlap with the reference solid, maximised over the 24 axis rotations. Correct at 0.9 or above.</div>
       </div>
     </div>
   </section>
 
-  <section id="race" class="card" hidden>
+  <section id="race" hidden>
     <div class="bar">
       <select id="examples"></select>
       <select id="modality"><option value="image">Input: drawing sheet</option><option value="text">Input: written spec</option></select>
@@ -243,8 +241,10 @@ const loader = new STLLoader();
 const OURS = 0x10b85a, TRUTH = 0xE5342A, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
 
 class Viewer {
-  constructor(el, color, zoom = 1.12) {  // zoom = margin left around the part
-    this.el = el; this.color = color; this.zoom = zoom; this.part = null; this.target = null;
+  // zoom = margin left around the part. sweep = which percentile of the turn has to fit, 1 = every angle stays
+  // inside the frame (and a long part therefore sits small), 0.75 = the widest quarter of the turn may crop.
+  constructor(el, color, zoom = 1.12, sweep = 0.75) {
+    this.el = el; this.color = color; this.zoom = zoom; this.sweep = sweep; this.part = null; this.target = null;
     this.partSeq = 0; this.targetSeq = 0;  // a mesh that arrives after a newer load started is dropped, not added
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -261,9 +261,8 @@ class Viewer {
     this.controls.enableDamping = true;
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.9;
-    // OrbitControls turns a drag into rotation as a fraction of the canvas HEIGHT, both ways. This stage is wide and
-    // short, so at the default speed a short sideways drag spins the part most of a turn. Half speed makes dragging
-    // the width about half a turn, and the height about a quarter.
+    // rotateSpeed is set from the element's shape in resize(): OrbitControls scales a drag by the canvas HEIGHT in
+    // both directions, so on a wide short stage the default spins the part most of a turn for a short sideways drag.
     this.controls.rotateSpeed = 0.5;
     this.controls.enablePan = false;  // nothing here needs panning, and an accidental one loses the part off-frame
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0xd8e4d4, 2.0));
@@ -282,6 +281,10 @@ class Viewer {
     const w = this.el.clientWidth || 300, h = this.el.clientHeight || 210;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // Keep the feel of a drag the same whatever shape the stage is: OrbitControls divides by height either way, so
+    // without this a layout change that shortens the stage silently makes it twitchier. 1.5 * h/w puts a drag across
+    // half the width at roughly a quarter turn, which is what it was tuned to.
+    this.controls.rotateSpeed = Math.min(1.2, Math.max(0.25, (1.5 * h) / w));
     this.camera.updateProjectionMatrix();
     this.fit();  // the framing depends on the aspect ratio
   }
@@ -356,10 +359,12 @@ class Viewer {
     // only. Shifting it sideways would tilt the sweep and let a corner swing out of frame.
     const heights = box8.map((v) => v.dot(up));
     const target = centre.clone().addScaledVector(up, (Math.min(...heights) + Math.max(...heights)) / 2 - centre.dot(up));
-    const swept = [];
-    for (const v of box8) {
-      const rel = v.clone().sub(target);
-      for (let k = 0; k < 24; k++) swept.push(rel.clone().applyAxisAngle(up, (k * Math.PI) / 12).add(target));
+    // The bounding box at each step of the turn, kept per step rather than pooled. Framing the whole sweep at once
+    // means framing a cylinder as wide as the part is long, which leaves a thin bar tiny at every angle. Framing a
+    // high percentile instead fills the view for most of the turn and lets only the widest angles crop a little.
+    const steps = [];
+    for (let k = 0; k < 24; k++) {
+      steps.push(box8.map((v) => v.clone().sub(target).applyAxisAngle(up, (k * Math.PI) / 12).add(target)));
     }
 
     let d = box.getSize(new THREE.Vector3()).length() || 1;
@@ -369,11 +374,15 @@ class Viewer {
       this.camera.updateProjectionMatrix();
       this.camera.lookAt(target);
       this.camera.updateMatrixWorld();
-      let reach = 0;
-      for (const v of swept) {
-        const q = v.clone().project(this.camera);
-        reach = Math.max(reach, Math.abs(q.x), Math.abs(q.y));
-      }
+      const perStep = steps.map((pts) => {
+        let r = 0;
+        for (const v of pts) {
+          const q = v.clone().project(this.camera);
+          r = Math.max(r, Math.abs(q.x), Math.abs(q.y));
+        }
+        return r;
+      }).sort((a, b) => a - b);
+      const reach = perStep[Math.floor(perStep.length * this.sweep)];
       if (!Number.isFinite(reach) || reach <= 0) break;
       d *= reach * this.zoom;
     }
@@ -399,7 +408,7 @@ for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTa
 /* ---------- compare: one stage; a dropdown picks whose answer it shows, a drawer curates the parts ---------- */
 let PARTS = [], DATA = null, picked = 1, filter = "all";
 const EXCLUDED = new Set(JSON.parse(localStorage.getItem("cadabra.excluded") || "[]"));
-const stage = new Viewer($("#stage"), OURS, 1.25);
+const stage = new Viewer($("#stage"), OURS, 1.14, 0.92);
 // what the stage is actually showing, so scripts/ui_check.py can catch a mesh left behind by a cancelled load
 // and check that the reference really does sit on top of the prediction
 window.__fit = () => {
