@@ -38,9 +38,16 @@
   label.check { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 13.5px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; min-width: 0; }
   .split { display: grid; grid-template-columns: minmax(260px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  /* Compare: the drawing sets the height of the row -- it keeps its own square aspect, so no band of empty card under
+     it -- and the stage stretches to meet it, so neither tile ends short of the other. A wider left column therefore
+     buys a bigger drawing and a bigger stage at once. */
+  .split.flush { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); align-items: stretch; }
+  .split.flush > .card:last-child { display: flex; flex-direction: column; }
+  /* flex-basis 0, or the canvas's own size counts as content height and each resize grows the tile again */
+  .split.flush .stage { flex: 1 1 0; height: auto; min-height: 320px; }
   @media (max-width: 1020px) { .split { grid-template-columns: 1fr; } }
   .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; display: block; }
-  .col { display: grid; gap: 18px; align-content: start; }
+
   .dropdown { position: relative; }
   .model-btn { display: inline-flex; align-items: center; gap: 9px; max-width: 460px; }
   .menu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 330px; background: var(--surface);
@@ -133,18 +140,12 @@
       <span class="label" id="partnote"></span>
     </div>
 
-    <div class="split" style="margin-top:16px">
-      <div class="col">
-        <div class="card sheet">
-          <div class="label">input · drawing sheet</div>
-          <h3 style="margin:6px 0 4px" id="parttitle"></h3>
-          <div class="label" style="margin-bottom:10px" id="bboxline"></div>
-          <img id="sheet" alt="drawing sheet">
-        </div>
-        <div class="card">
-          <div class="label" id="codeowner">program</div>
-          <pre id="stagecode" style="margin-top:8px"></pre>
-        </div>
+    <div class="split flush" style="margin-top:16px">
+      <div class="card sheet" id="sheetcard">
+        <div class="label">input · drawing sheet</div>
+        <h3 style="margin:6px 0 4px" id="parttitle"></h3>
+        <div class="label" style="margin-bottom:10px" id="bboxline"></div>
+        <img id="sheet" alt="drawing sheet">
       </div>
 
       <div class="card">
@@ -155,6 +156,7 @@
           </div>
           <label class="check"><input type="checkbox" id="overlay" checked> overlay reference</label>
           <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
+          <button id="progBtn" class="icon">Program</button>
           <span class="stats" id="stagestats"></span>
         </div>
         <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
@@ -195,6 +197,14 @@
 </main>
 
 <div class="backdrop" id="backdrop" hidden></div>
+<aside class="drawer" id="progdrawer" hidden aria-label="program">
+  <div class="bar" style="justify-content:space-between">
+    <h2>Program</h2>
+    <button id="progClose" class="icon" title="close (Esc)">✕</button>
+  </div>
+  <div class="label" id="codeowner" style="margin-top:12px">program</div>
+  <pre id="stagecode" style="margin-top:8px; max-height:none"></pre>
+</aside>
 <aside class="drawer" id="drawer" hidden aria-label="parts">
   <div class="bar" style="justify-content:space-between">
     <h2>Parts</h2>
@@ -550,12 +560,22 @@ function drawList() {
 
 function openDrawer(open) {
   $("#drawer").hidden = !open;
-  $("#backdrop").hidden = !open;
+  if (open) $("#progdrawer").hidden = true;
+  syncBackdrop();
   if (open) { drawList(); $("#search").focus(); }
 }
+function openProgram(open) {
+  $("#progdrawer").hidden = !open;
+  if (open) $("#drawer").hidden = true;
+  syncBackdrop();
+}
+const syncBackdrop = () => ($("#backdrop").hidden = $("#drawer").hidden && $("#progdrawer").hidden);
+const closePanels = () => { openDrawer(false); openProgram(false); };
 $("#partsBtn").onclick = () => openDrawer($("#drawer").hidden);
+$("#progBtn").onclick = () => openProgram($("#progdrawer").hidden);
 $("#drawerClose").onclick = () => openDrawer(false);
-$("#backdrop").onclick = () => openDrawer(false);
+$("#progClose").onclick = () => openProgram(false);
+$("#backdrop").onclick = closePanels;
 $("#search").oninput = drawList;
 $("#filters").querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => {
   filter = b.dataset.f;
@@ -569,8 +589,8 @@ $("#selNone").onclick = () => {
   saveExcluded(); fillParts(); drawList();
 };
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { openDrawer(false); closeMenu(); }
-  if ($("#compare").hidden || $("#drawer").hidden === false || e.target.matches("input, select, textarea")) return;
+  if (e.key === "Escape") { closePanels(); closeMenu(); }
+  if ($("#compare").hidden || !$("#drawer").hidden || !$("#progdrawer").hidden || e.target.matches("input, select, textarea")) return;
   if (e.key === "ArrowLeft") step(-1);
   if (e.key === "ArrowRight") step(1);
 });

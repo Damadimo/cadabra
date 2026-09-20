@@ -91,8 +91,8 @@ def main() -> None:
             page.query_selector_all("#modelMenu button")[i].click()
             page.wait_for_timeout(900)
             stats = page.inner_text("#stagestats")
-            code = page.locator("#stagecode").text_content() or ""
-            owner = page.inner_text("#codeowner")
+            code = page.locator("#stagecode").text_content() or ""      # the program panel is a slide-over
+            owner = page.locator("#codeowner").text_content() or ""
             if i == 0:
                 check(canvas_has_content(page, "#stage"), "reference renders in the stage")
                 check(code.strip().startswith("import cadquery"), "reference program shown", code[:40])
@@ -161,6 +161,21 @@ def main() -> None:
         page.wait_for_timeout(1400)
         check(page.eval_on_selector("#parts", "e => e.value") == before, "previous comes back")
         check(page.inner_text("#stagestats").strip() != "", "stats redraw after moving")
+
+        print("\nprogram panel")
+        page.click("#progBtn")
+        page.wait_for_timeout(500)
+        check(page.is_visible("#progdrawer"), "the program panel opens")
+        check((page.inner_text("#stagecode") or "").strip().startswith("import cadquery"), "it shows the program",
+              page.inner_text("#stagecode")[:40])
+        page.click("#backdrop", position={"x": 20, "y": 20})
+        page.wait_for_timeout(400)
+        check(not page.is_visible("#progdrawer"), "clicking outside closes it")
+        page.click("#progBtn")
+        page.wait_for_timeout(400)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
+        check(not page.is_visible("#progdrawer") and not page.is_visible("#backdrop"), "Escape closes it")
 
         print("\nparts drawer")
         page.click("#partsBtn")
