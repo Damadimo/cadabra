@@ -232,12 +232,16 @@ benchmark harness on each (Figure~\ref{fig:rl}). The control reproduces the SFT 
 
 Accuracy is already below the starting point after ten steps and never returns. The loss is almost entirely on medium
 parts: 56.3\% $\rightarrow$ 48.7\% after ten steps, then flat near 42\%. Simple parts, where the model was already
-right 92\% of the time, barely move, and complex parts stay inside their noise. We did not ship it. One explanation
-that fits the shape of the curve, though we did not test it: two thirds of the sheets are simple ones the model
-already solves, so most rollout groups have near-identical rewards and contribute no gradient, while the groups that
-do carry signal are the mixed medium parts --- exactly where entropy collapsed (0.25 $\rightarrow$ 0.09 within the
-run) and accuracy fell. A prompt set weighted toward parts the model gets right only sometimes would be the first
-thing to try with more GPU time.
+right 92\% of the time, barely move, and complex parts stay inside their noise. We did not ship it.
+
+We measured what happened but did not diagnose why, and the obvious explanation does not survive contact with the
+configuration. The rollout prompts were already 80\% medium, complex or multi-part, so this is not a case of easy
+prompts producing identical rewards and no gradient: the logged share of groups with zero reward variance stayed
+between 0 and 0.375. What the run does show is a policy collapsing onto one mode --- entropy falls from 0.25 to 0.09
+across the 60 steps --- while mean aligned IoU on held-out parts falls too, 0.887 to 0.871. So it is not trading
+exactness for overlap; it gets worse at both. The reward rising while held-out accuracy falls, concentrated on the
+tier with the most partial credit available, is consistent with the policy fitting the 2,000 rollout prompts rather
+than the task, but we have not run the ablation that would settle it.
 
 \begin{figure}[h]
 \centering
