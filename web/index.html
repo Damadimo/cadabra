@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadabra</title>
+<link rel="icon" href="data:,">
+<style>
+    :root {
+    --bg: #F5F8F4; --surface: #FFFFFF; --inset: #FAFCF9; --line: #E1EADD; --line-2: #CBD8C6;
+    --ink: #101511; --ink-2: #4D584E; --muted: #74806F; --green: #19E76E; --green-deep: #00B86B;
+    --pink: #FFA9FD; --bad: #B4482C;
+    --mono: ui-monospace, "SFMono-Regular", "Chivo Mono", "IBM Plex Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14.5px/1.55 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-weight: 500; letter-spacing: -.025em; margin: 0; }
+  h1 { font-size: 21px; }
+  h2 { font-size: 16px; }
+  h3 { font-size: 13.5px; }
+  .label { font: 400 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .01em; }
+  .muted { color: var(--muted); }
+  header { padding: 20px 32px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  header .sub { color: var(--ink-2); font-size: 13.5px; max-width: 620px; }
+  nav { margin-left: auto; display: flex; gap: 8px; }
+  nav button { background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 999px; padding: 7px 18px; font-size: 13.5px; }
+  nav button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  main { padding: 22px 32px 56px; display: grid; gap: 20px; max-width: 1560px; }
+  .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  select, button, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 16px; }
+  textarea { border-radius: 12px; }
+  button { cursor: pointer; transition: border-color .15s, background .15s; }
+  button:hover { border-color: var(--ink); }
+  button.primary { background: var(--green); border-color: var(--green); color: #05220F; font-weight: 500; }
+  button.primary:hover { background: var(--green-deep); border-color: var(--green-deep); }
+  button:disabled { opacity: .45; cursor: default; }
+  textarea { width: 100%; min-height: 110px; font: 12px/1.5 var(--mono); resize: vertical; padding: 12px 14px; }
+  label.check { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 13.5px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; min-width: 0; }
+  .split { display: grid; grid-template-columns: minmax(260px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  /* Compare: the drawing sets the height of the row -- it keeps its own square aspect, so no band of empty card under
+     it -- and the stage stretches to meet it, so neither tile ends short of the other. A wider left column therefore
+     buys a bigger drawing and a bigger stage at once. */
+  .split.flush { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); align-items: stretch; }
+  .split.flush > .card:last-child { display: flex; flex-direction: column; }
+  /* flex-basis 0, or the canvas's own size counts as content height and each resize grows the tile again */
+  .split.flush .stage { flex: 1 1 0; height: auto; min-height: 320px; }
+  @media (max-width: 1020px) { .split { grid-template-columns: 1fr; } }
+  .sheet img { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; display: block; }
+
+  .dropdown { position: relative; }
+  .model-btn { display: inline-flex; align-items: center; gap: 9px; max-width: 460px; }
+  .menu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 330px; background: var(--surface);
+          border: 1px solid var(--line-2); border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgba(16,21,17,.10); }
+  .menu button { display: flex; width: 100%; align-items: center; gap: 9px; border: 0; background: transparent; border-radius: 10px;
+                 padding: 9px 11px; text-align: left; font-size: 13.5px; }
+  .menu button:hover { background: var(--inset); }
+  .menu button.on { background: var(--ink); color: #F5F8F4; }
+  .menu button.on .iou { color: #C9D6CB; }
+  .mark { font-weight: 600; }
+  .mark.ok { color: var(--green-deep); }
+  .mark.no { color: var(--bad); }
+  .mark.truth { color: #E5342A; }  /* the same red the reference is drawn in */
+  .iou { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 430px; max-width: 92vw; background: var(--surface);
+            border-left: 1px solid var(--line); padding: 18px; overflow: auto; z-index: 60; box-shadow: -12px 0 30px rgba(16,21,17,.08); }
+  .drawer .row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+  .drawer .row:hover { background: var(--inset); }
+  .drawer .row.on { background: #F1F8F2; }
+  .drawer .row .meta { font: 11px var(--mono); color: var(--muted); }
+  .drawer .row .marks { margin-left: auto; display: flex; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+  .dot.ok { background: var(--green-deep); } .dot.no { background: var(--bad); } .dot.na { background: var(--line-2); }
+  .filters button.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .backdrop { position: fixed; inset: 0; background: rgba(16,21,17,.18); z-index: 50; }
+  input[type=search] { font: inherit; width: 100%; border: 1px solid var(--line-2); border-radius: 999px; padding: 8px 14px; }
+  .icon { padding: 8px 13px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--surface); border-radius: 999px; padding: 7px 15px; font-size: 13px; color: var(--ink-2); }
+  .chip:hover { border-color: var(--ink); }
+  .chip .mark { font-weight: 600; }
+  .chip.ok .mark { color: var(--green-deep); }
+  .chip.no .mark { color: var(--bad); }
+  .chip.truth { border-color: var(--pink); }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: #F5F8F4; }
+  .chip.on .mark { color: var(--green); }
+  .chip.on.no .mark { color: #FF9B78; }
+  .chip .iou { font: 11.5px var(--mono); opacity: .7; }
+  .stage { height: 470px; border-radius: 14px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; margin-top: 14px; }
+  .stage canvas, .viewer canvas { display: block; width: 100%; height: 100%; }
+  .stage .hint, .viewer .hint { position: absolute; left: 12px; bottom: 10px; font: 11px var(--mono); color: var(--muted); pointer-events: none; }
+  .viewer { height: 190px; border-radius: 12px; background: var(--inset); border: 1px solid var(--line); overflow: hidden; position: relative; }
+  .pill { display: inline-block; white-space: nowrap; font-size: 12px; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); }
+  .pill.ok { color: #06682F; border-color: var(--green-deep); background: #ECFCF2; }
+  .pill.no { color: var(--bad); border-color: #E8CCC2; background: #FDF2EE; }
+  .stats { font: 12.5px/1.5 var(--mono); color: var(--ink-2); }
+  .stats b { font-weight: 600; }
+  .slug { font: 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  .foot { font: 11px/1.5 var(--mono); color: var(--muted); margin-top: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .cards .card { display: grid; gap: 9px; align-content: start; }
+  .cards .card.ours { border-color: var(--green-deep); }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .m { background: var(--inset); border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; }
+  .m b { display: block; font: 500 15px var(--mono); }
+  .m span { color: var(--muted); font-size: 10.5px; }
+  pre { margin: 0; background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+        max-height: 430px; overflow: auto; font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  details pre { margin: 8px 0 0; background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 12px; max-height: 280px; overflow: auto; font: 11.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  summary { cursor: pointer; color: var(--muted); font: 11px var(--mono); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font: 400 11px var(--mono); color: var(--muted); }
+  td { font-size: 13.5px; }
+  tbody tr.ours td { background: #F3FCF6; font-weight: 500; }
+  .scroll { overflow-x: auto; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cadabra</h1>
+  <span class="sub">A 4B model post-trained on Baseten reads an engineering drawing and writes the CAD program that builds the part. Every answer is executed and compared with the reference solid.</span>
+  <nav>
+    <button id="tab-compare" class="on">Compare</button>
+    <button id="tab-race">Live race</button>
+  </nav>
+</header>
+
+<main>
+  <section id="compare" class="card">
+    <div class="bar">
+      <button id="prev" class="icon" title="previous part (←)">←</button>
+      <select id="parts"></select>
+      <button id="next" class="icon" title="next part (→)">→</button>
+      <button id="partsBtn">Parts <span class="iou" id="partsCount" style="margin:0"></span></button>
+      <button id="raceThis">Race this part live</button>
+      <span class="label" id="partnote"></span>
+    </div>
+
+    <div class="split flush" style="margin-top:16px">
+      <div class="card sheet" id="sheetcard">
+        <div class="label">input · drawing sheet</div>
+        <h3 style="margin:6px 0 4px" id="parttitle"></h3>
+        <div class="label" style="margin-bottom:10px" id="bboxline"></div>
+        <img id="sheet" alt="drawing sheet">
+      </div>
+
+      <div class="card">
+        <div class="bar">
+          <div class="dropdown">
+            <button id="modelBtn" class="model-btn"><span id="modelBtnText">choose a model</span><span aria-hidden="true">▾</span></button>
+            <div class="menu" id="modelMenu" hidden></div>
+          </div>
+          <label class="check"><input type="checkbox" id="overlay" checked> overlay reference</label>
+          <label class="check"><input type="checkbox" id="spin" checked> rotate</label>
+          <button id="progBtn" class="icon">Program</button>
+          <span class="stats" id="stagestats"></span>
+        </div>
+        <div class="stage" id="stage"><span class="hint" id="stagehint"></span></div>
+        <div class="foot">IoU is volumetric overlap with the reference solid, maximised over the 24 axis rotations; a part counts as
+          correct at 0.9 or above. Time, cost and tokens are what that model actually used on this part in the benchmark run.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="race" class="card" hidden>
+    <div class="bar">
+      <select id="examples"></select>
+      <select id="modality"><option value="image">Input: drawing sheet</option></select>
+      <button id="go" class="primary">Run ▶</button>
+      <span class="muted" id="note"></span>
+    </div>
+    <div class="split" style="margin-top:14px">
+      <div class="card sheet">
+        <div id="sheetbox"><div class="label">input · drawing sheet</div><div class="label" style="margin:6px 0 10px" id="rbbox"></div><img id="rsheet" alt="drawing sheet" hidden></div>
+        <textarea id="spec" placeholder="Describe a part with exact dimensions…"></textarea>
+        <div style="margin-top:10px"><h3>Target part <span class="muted" id="tstats"></span></h3>
+          <div class="viewer" id="target" style="margin-top:6px"><span class="hint">reference solid</span></div></div>
+      </div>
+      <div>
+        <div class="cards" id="lanes"></div>
+        <div class="foot">Frontier lanes call Baseten Model APIs at high reasoning effort with two worked examples; ours gets the
+          zero-shot prompt it was trained on and samples 8 programs, keeping the best match to the drawing. $/part for ours is
+          GPU seconds at concurrency 1, an upper bound; the table below amortises the GPU over measured throughput.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Held-out benchmark <span class="muted" id="sbmeta"></span></h2>
+    <div class="scroll" id="scoreboard" style="margin-top:10px"><span class="muted">No benchmark run yet.</span></div>
+    <div class="foot" id="sbfoot"></div>
+  </section>
+</main>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<aside class="drawer" id="progdrawer" hidden aria-label="program">
+  <div class="bar" style="justify-content:space-between">
+    <h2>Program</h2>
+    <button id="progClose" class="icon" title="close (Esc)">✕</button>
+  </div>
+  <div class="label" id="codeowner" style="margin-top:12px">program</div>
+  <pre id="stagecode" style="margin-top:8px; max-height:none"></pre>
+</aside>
+<aside class="drawer" id="drawer" hidden aria-label="parts">
+  <div class="bar" style="justify-content:space-between">
+    <h2>Parts</h2>
+    <button id="drawerClose" class="icon" title="close (Esc)">✕</button>
+  </div>
+  <div style="margin-top:12px"><input type="search" id="search" placeholder="search parts…"></div>
+  <div class="bar filters" style="margin-top:10px" id="filters">
+    <button data-f="all" class="on">All</button>
+    <button data-f="wins">Only we get right</button>
+    <button data-f="missed">We get wrong</button>
+    <button data-f="hard">Medium &amp; complex</button>
+  </div>
+  <div class="bar" style="margin-top:10px">
+    <button id="selAll" class="icon">Include shown</button>
+    <button id="selNone" class="icon">Exclude shown</button>
+    <span class="label" id="drawerCount"></span>
+  </div>
+  <div class="label" id="legend" style="margin-top:12px"></div>
+  <div id="partlist" style="margin-top:6px"></div>
+</aside>
+
+<script>
+// Static build: there is no API, so point the page's own calls at the files exported beside it.
+window.CADABRA_STATIC = true;
+const _fetch = window.fetch.bind(window);
+window.fetch = (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  const m = /^\/api\/(.*)$/.exec(url || "");
+  if (!m) return _fetch(input, init);
+  const rest = m[1];
+  const one = (p) => _fetch("data/" + p, init);
+  if (rest === "parts") return one("parts.json");
+  if (rest === "scoreboard") return one("scoreboard.json");
+  if (rest === "config") return one("config.json");
+  if (rest === "examples") return one("examples.json");
+  if (rest.startsWith("compare/")) return one("compare/" + decodeURIComponent(rest.slice(8)).replace(/[:/]/g, "_") + ".json");
+  if (rest.startsWith("mesh/")) return one("mesh/" + rest.slice(5) + ".stl");
+  if (rest.startsWith("sheet/")) return one("sheet/" + decodeURIComponent(rest.slice(6)).replace(/[:/]/g, "_") + ".png");
+  return Promise.resolve(new Response("not in the static build", { status: 404 }));
+};
+</script>
+<script type="importmap">{"imports": {"three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = (x, d = 1) => (x == null ? "–" : Number(x).toFixed(d));
+const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
+const money = (x) => (x == null ? "–" : "$" + (x < 0.01 ? x.toFixed(4) : x.toFixed(3)));
+const loader = new STLLoader();
+// The reference is red against the green prediction: ghosted over it, whatever is only red is volume the model
+// missed and whatever is only green is volume it invented, which is what the IoU is counting.
+const OURS = 0x10b85a, TRUTH = 0xE5342A, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
+
+class Viewer {
+  constructor(el, color, zoom = 1.12) {  // zoom = margin left around the part
+    this.el = el; this.color = color; this.zoom = zoom; this.part = null; this.target = null;
+    this.partSeq = 0; this.targetSeq = 0;  // a mesh that arrives after a newer load started is dropped, not added
+    try {
+      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {  // no WebGL: scores and code still work
+      this.renderer = null;
+      el.insertAdjacentHTML("afterbegin", '<div class="muted" style="padding:10px">3D preview needs WebGL.</div>');
+      return;
+    }
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    el.prepend(this.renderer.domElement);
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(35, 1, 0.001, 1000);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.autoRotate = true;
+    this.controls.autoRotateSpeed = 0.9;
+    // OrbitControls turns a drag into rotation as a fraction of the canvas HEIGHT, both ways. This stage is wide and
+    // short, so at the default speed a short sideways drag spins the part most of a turn. Half speed makes dragging
+    // the width about half a turn, and the height about a quarter.
+    this.controls.rotateSpeed = 0.5;
+    this.controls.enablePan = false;  // nothing here needs panning, and an accidental one loses the part off-frame
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xd8e4d4, 2.0));
+    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    key.position.set(2, 3, 4);
+    this.scene.add(key);
+    this.group = new THREE.Group();
+    this.scene.add(this.group);
+    new ResizeObserver(() => this.resize()).observe(el);
+    this.resize();
+    const loop = () => { this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(loop); };
+    loop();
+  }
+  resize() {
+    if (!this.renderer) return;
+    const w = this.el.clientWidth || 300, h = this.el.clientHeight || 210;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.fit();  // the framing depends on the aspect ratio
+  }
+  async geometry(key) {
+    const g = loader.parse(await (await fetch(`/api/mesh/${key}`)).arrayBuffer());
+    g.computeVertexNormals();
+    return g;
+  }
+  drop(o) { if (o) { this.group.remove(o); o.geometry.dispose(); } }
+  async setPart(key, color) {
+    if (!this.renderer) return;
+    const seq = ++this.partSeq;
+    const g = await this.geometry(key);
+    if (seq !== this.partSeq) { g.dispose(); return; }
+    this.drop(this.part);
+    this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: color ?? this.color, metalness: 0.05, roughness: 0.55, side: THREE.DoubleSide }));
+    this.group.add(this.part);
+    this.fit();
+  }
+  /* mode: "ghost" (translucent reference over the prediction), "edges", "solid", or null to remove */
+  async setTarget(key, mode = "edges") {
+    if (!this.renderer) return;
+    const seq = ++this.targetSeq;
+    if (!key || !mode) { this.drop(this.target); this.target = null; this.fit(); return; }
+    const g = await this.geometry(key);
+    if (seq !== this.targetSeq) { g.dispose(); return; }
+    this.drop(this.target); this.target = null;
+    if (mode === "edges") {
+      this.target = new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0x51695a, transparent: true, opacity: 0.6 }));
+      g.dispose();  // the edge geometry is its own; the solid one is not shown
+    } else {
+      this.target = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+        color: TRUTH, metalness: 0.05, roughness: 0.65, transparent: mode === "ghost", opacity: mode === "ghost" ? 0.46 : 1,
+        depthWrite: mode !== "ghost", side: THREE.DoubleSide,
+      }));
+    }
+    this.group.add(this.target);
+    this.fit();
+  }
+  spin(on) { if (this.controls) this.controls.autoRotate = on; }
+  clear() { if (!this.renderer) return; this.partSeq++; this.targetSeq++; this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
+  /* Frame the part. Two things make this more than "fit the bounding sphere": the canvas is much wider than it is
+     tall, and the stage rotates, so a framing that suits the angle we start at clips the part half a turn later.
+     So: stand the camera on the part's shortest axis (a long part then runs across the width, the way the sheet's
+     isometric view shows it), and fit the corners at a full turn of azimuths, which is the cylinder the part sweeps
+     out. Rotation-safe like the bounding sphere, but as tight as the part's real shape allows. */
+  fit() {
+    if (!this.renderer) return;
+    this.group.quaternion.identity();
+    this.group.updateMatrixWorld(true);
+    let box = new THREE.Box3().setFromObject(this.group);
+    if (box.isEmpty()) return;
+    const dir = new THREE.Vector3(1, 0.75, 1.15).normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    // These parts are normalised to a 0.75 long axis, so many are thin bars. On a canvas wider than it is tall, stand
+    // the part on its shortest axis: the long one then runs across the width, the way the sheet's isometric view shows
+    // it, instead of down a narrow strip. Turn the part, never the camera -- OrbitControls fixes its orbit axis from
+    // camera.up when it is constructed and never re-reads it, so a camera rolled here would drag against its own axis.
+    const size = box.getSize(new THREE.Vector3()).toArray();
+    if (this.camera.aspect > 1.3 && Math.max(...size) > 2 * Math.min(...size)) {
+      const shortest = [0, 1, 2].sort((a, b) => size[a] - size[b])[0];
+      this.group.quaternion.setFromUnitVectors(new THREE.Vector3(+(shortest === 0), +(shortest === 1), +(shortest === 2)), up);
+      this.group.updateMatrixWorld(true);
+      box = new THREE.Box3().setFromObject(this.group);
+    }
+    const box3 = [[box.min.x, box.max.x], [box.min.y, box.max.y], [box.min.z, box.max.z]];
+    const centre = box.getCenter(new THREE.Vector3());
+    const box8 = [];
+    for (const x of box3[0]) for (const y of box3[1]) for (const z of box3[2]) box8.push(new THREE.Vector3(x, y, z));
+
+    // The camera orbits `up` through the target, so the target must sit on the part's own axis: centre it along `up`
+    // only. Shifting it sideways would tilt the sweep and let a corner swing out of frame.
+    const heights = box8.map((v) => v.dot(up));
+    const target = centre.clone().addScaledVector(up, (Math.min(...heights) + Math.max(...heights)) / 2 - centre.dot(up));
+    const swept = [];
+    for (const v of box8) {
+      const rel = v.clone().sub(target);
+      for (let k = 0; k < 24; k++) swept.push(rel.clone().applyAxisAngle(up, (k * Math.PI) / 12).add(target));
+    }
+
+    let d = box.getSize(new THREE.Vector3()).length() || 1;
+    for (let pass = 0; pass < 6; pass++) {
+      this.camera.position.copy(target).addScaledVector(dir, d);
+      this.camera.near = d / 200; this.camera.far = d * 200;
+      this.camera.updateProjectionMatrix();
+      this.camera.lookAt(target);
+      this.camera.updateMatrixWorld();
+      let reach = 0;
+      for (const v of swept) {
+        const q = v.clone().project(this.camera);
+        reach = Math.max(reach, Math.abs(q.x), Math.abs(q.y));
+      }
+      if (!Number.isFinite(reach) || reach <= 0) break;
+      d *= reach * this.zoom;
+    }
+    this.controls.target.copy(target);
+    this.controls.minDistance = d * 0.4;  // keep the wheel from diving inside the solid or losing it in the distance
+    this.controls.maxDistance = d * 2.5;
+    this.camera.position.copy(target).addScaledVector(dir, d);
+    this.camera.near = d / 200; this.camera.far = d * 200;
+    this.camera.updateProjectionMatrix();
+  }
+}
+
+/* ---------- tabs ---------- */
+function showTab(name) {
+  for (const other of ["compare", "race"]) {
+    $("#" + other).hidden = other !== name;
+    $("#tab-" + other).classList.toggle("on", other === name);
+  }
+  [stage, targetViewer, ...Object.values(viewers)].forEach((v) => v && v.resize());
+}
+for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTab(name);
+
+/* ---------- compare: one stage; a dropdown picks whose answer it shows, a drawer curates the parts ---------- */
+let PARTS = [], DATA = null, picked = 1, filter = "all";
+const EXCLUDED = new Set(JSON.parse(localStorage.getItem("cadabra.excluded") || "[]"));
+const stage = new Viewer($("#stage"), OURS, 1.25);
+// what the stage is actually showing, so scripts/ui_check.py can catch a mesh left behind by a cancelled load
+// and check that the reference really does sit on top of the prediction
+window.__fit = () => {
+  const box = new THREE.Box3().setFromObject(stage.group);
+  let lo = [9, 9], hi = [-9, -9];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const q = new THREE.Vector3(x, y, z).project(stage.camera);
+    lo = [Math.min(lo[0], q.x), Math.min(lo[1], q.y)]; hi = [Math.max(hi[0], q.x), Math.max(hi[1], q.y)];
+  }
+  const rel = stage.camera.position.clone().sub(stage.controls.target);
+  return { ndc: [lo, hi].map((a) => a.map((v) => +v.toFixed(3))), up: stage.camera.up.toArray(),
+           aspect: +stage.camera.aspect.toFixed(3), zoom: stage.zoom,
+           radius: +rel.length().toFixed(4), elevation: +Math.asin(rel.y / rel.length()).toFixed(4),
+           azimuth: +Math.atan2(rel.x, rel.z).toFixed(4) };
+};
+window.__stage = () => stage.group.children.map((o) => {
+  const a = o.geometry.attributes.position.array;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < a.length; i += 3) for (let j = 0; j < 3; j++) { lo[j] = Math.min(lo[j], a[i + j]); hi[j] = Math.max(hi[j], a[i + j]); }
+  return { type: o.type, lo: lo.map((v) => +v.toFixed(4)), hi: hi.map((v) => +v.toFixed(4)),
+           at: [o.position.x, o.position.y, o.position.z], opacity: o.material.opacity };
+});
+
+const included = () => PARTS.filter((p) => !EXCLUDED.has(p.id));
+const saveExcluded = () => localStorage.setItem("cadabra.excluded", JSON.stringify([...EXCLUDED]));
+
+async function loadParts() {
+  PARTS = await (await fetch("/api/parts")).json();
+  fillParts();
+  const wanted = new URLSearchParams(location.search).get("part");
+  if (PARTS.length) await showPart(wanted && PARTS.some((p) => p.id === wanted) ? wanted : pickDefault());
+}
+
+function fillParts() {
+  const list = included();
+  const groups = {};
+  for (const p of list) (groups[p.tier] ||= []).push(p);
+  $("#parts").innerHTML = Object.entries(groups).map(([tier, ps]) =>
+    `<optgroup label="${esc(tier)} (${ps.length})">` +
+    ps.map((p) => `<option value="${esc(p.id)}">${esc(p.title)} · ${p.n_faces} faces${p.n_parts > 1 ? ", " + p.n_parts + " parts" : ""}</option>`).join("") +
+    `</optgroup>`).join("");
+  $("#partsCount").textContent = `${list.length} of ${PARTS.length}`;
+}
+
+// Open on a part that makes the point: not simple, we get it right, both frontier models do not. Among those prefer
+// a compact one, because a part twenty times longer than it is thick renders as a sliver in a wide canvas, then the
+// one with the most faces.
+const slenderness = (p) => (p.extents && p.extents.length === 3 ? Math.max(...p.extents) / Math.max(Math.min(...p.extents), 1e-6) : 99);
+function pickDefault() {
+  const pool = included().length ? included() : PARTS;
+  const hero = pool.filter((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple");
+  const compact = hero.filter((p) => slenderness(p) <= 5);
+  return ((compact.length ? compact : hero).sort((a, b) => (b.n_faces || 0) - (a.n_faces || 0))[0] || pool[0]).id;
+}
+
+const entries = () => [{ ...DATA.reference, truth: true, label: "Reference (dataset)" }, ...DATA.lanes];
+
+/* --- model dropdown --- */
+function markFor(c) {
+  return c.truth ? '<span class="mark truth">◆</span>' : `<span class="mark ${c.success ? "ok" : "no"}">${c.success ? "✓" : "✗"}</span>`;
+}
+function drawModelMenu() {
+  const list = entries();
+  const c = list[picked];
+  $("#modelBtnText").innerHTML = `${markFor(c)} ${esc(c.label)}` +
+    (c.truth ? "" : ` <span class="iou" style="margin-left:8px">${c.iou_aligned == null ? "no solid" : "IoU " + c.iou_aligned.toFixed(3)}</span>`);
+  $("#modelMenu").innerHTML = list.map((e, i) =>
+    `<button data-i="${i}" class="${i === picked ? "on" : ""}">${markFor(e)} <span>${esc(e.label)}</span>
+      <span class="iou">${e.truth ? "ground truth" : e.iou_aligned == null ? "no solid" : "IoU " + e.iou_aligned.toFixed(3)}</span></button>`).join("");
+  $("#modelMenu").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => { closeMenu(); select(+b.dataset.i); }));
+}
+const closeMenu = () => ($("#modelMenu").hidden = true);
+$("#modelBtn").onclick = (e) => { e.stopPropagation(); $("#modelMenu").hidden = !$("#modelMenu").hidden; };
+document.addEventListener("click", (e) => { if (!e.target.closest(".dropdown")) closeMenu(); });
+
+async function select(i) {
+  picked = i;
+  const c = entries()[i];
+  drawModelMenu();
+  stage.clear();
+  const overlay = $("#overlay").checked;
+  $("#stagehint").textContent = c.truth ? "the dataset's reference solid"
+    : overlay ? "prediction solid, reference ghosted over it in red" : "prediction only";
+  $("#stagestats").innerHTML = c.truth
+    ? `${c.stats ? c.stats.n_faces + " faces · what every model is scored against" : ""}`
+    : `${c.success ? '<b style="color:#06682F">correct</b>' : '<b style="color:#B4482C">wrong</b>'} · IoU ${c.iou_aligned == null ? "–" : c.iou_aligned.toFixed(3)}` +
+      ` · ${num(c.e2e_s, 1)} s · ${money(c.cost_usd)} · ${c.output_tokens ?? "–"} output tokens` +
+      (c.mesh ? "" : " · " + esc((c.error || "did not build").slice(0, 70)));
+  $("#codeowner").textContent = `program · ${c.truth ? "dataset reference" : c.label}`;
+  $("#stagecode").textContent = c.code || "";
+  if (c.truth) { if (c.mesh) await stage.setPart(c.mesh, TRUTH); return; }
+  if (c.mesh) await stage.setPart(c.mesh, c.ours ? OURS : RIVALS[0]);
+  if (overlay && DATA.reference.mesh) await stage.setTarget(DATA.reference.mesh, c.mesh ? "ghost" : "solid");
+}
+
+async function showPart(id) {
+  $("#parts").value = id;
+  $("#partnote").textContent = "building the solids…";
+  let res;
+  try {
+    res = await fetch(`/api/compare/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(await res.text());
+    DATA = await res.json();
+  } catch (err) {
+    $("#partnote").textContent = "could not load this part: " + String(err).slice(0, 80);
+    return;
+  }
+  $("#sheet").src = DATA.sheet;
+  const b = DATA.bbox;
+  $("#parttitle").textContent = DATA.title;
+  $("#bboxline").textContent = `${DATA.tier_faces} faces${DATA.n_parts > 1 ? " · " + DATA.n_parts + " parts" : ""}` +
+    (b ? ` · bounding box ${b[0].toFixed(4)} × ${b[1].toFixed(4)} × ${b[2].toFixed(4)}` : "");
+  $("#partnote").textContent = "held out from training · answers replayed from the benchmark runs";
+  const want = +(new URLSearchParams(location.search).get("model") ?? 1);
+  await select(Math.max(0, Math.min(Number.isFinite(want) ? want : 1, entries().length - 1)));
+  if (!$("#drawer").hidden) drawList();
+}
+
+function step(delta) {
+  const ids = [...$("#parts").options].map((o) => o.value);
+  if (!ids.length) return;
+  const i = ids.indexOf($("#parts").value);
+  showPart(ids[(i + delta + ids.length) % ids.length]);
+}
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
+$("#parts").onchange = (e) => showPart(e.target.value);
+$("#overlay").onchange = () => select(picked);
+$("#spin").onchange = (e) => stage.spin(e.target.checked);
+$("#raceThis").onclick = () => {
+  if (!DATA) return;
+  useExample({ id: DATA.id, spec: DATA.spec, sheet: DATA.sheet, bbox: DATA.bbox, title: DATA.title });
+  showTab("race");
+  $("#go").click();
+};
+
+/* --- parts drawer: include or exclude parts, and see who got each one right --- */
+function shown() {
+  const q = $("#search").value.trim().toLowerCase();
+  return PARTS.filter((p) => {
+    if (q && !(p.title.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))) return false;
+    if (filter === "wins") return p.ours_correct && p.frontier_correct === 0;
+    if (filter === "missed") return !p.ours_correct;
+    if (filter === "hard") return p.tier === "medium" || p.tier === "complex" || p.tier === "multi-part";
+    return true;
+  });
+}
+
+const shortLabel = (label) => label
+  .replace("Cadabra 4B (ours)", "ours").replace(" · best of ", " ×").replace(" · 1 sample", "")
+  .replace("GLM-5.3 ", "").replace("Kimi ", "").replace(" (high)", "");
+
+function drawList() {
+  const list = shown();
+  const models = (PARTS.find((p) => p.results)?.results) || [];
+  $("#legend").innerHTML = "marks: " + models.map((r) =>
+    `<span class="dot na" style="margin:0 5px 0 0"></span>${esc(shortLabel(r.label))}`).join(" &nbsp; ");
+  $("#drawerCount").textContent = `${list.length} shown · ${included().length} included`;
+  $("#partlist").innerHTML = list.slice(0, 400).map((p) => `
+    <div class="row ${p.id === $("#parts").value ? "on" : ""}" data-id="${esc(p.id)}">
+      <input type="checkbox" ${EXCLUDED.has(p.id) ? "" : "checked"} data-cb="${esc(p.id)}" title="include in the part list">
+      <div style="min-width:0">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</div>
+        <div class="meta">${p.tier} · ${p.n_faces} faces${p.n_parts > 1 ? " · " + p.n_parts + " parts" : ""}</div>
+      </div>
+      <div class="marks">${(p.results || []).map((r) => `<span class="dot ${r.success ? "ok" : "no"}" title="${esc(r.label)}: ${r.success ? "correct" : "wrong"}${r.iou == null ? "" : " (IoU " + r.iou.toFixed(3) + ")"}"></span>`).join("")}</div>
+    </div>`).join("") + (list.length > 400 ? `<div class="label" style="padding:8px 10px">showing the first 400</div>` : "");
+  $("#partlist").querySelectorAll("[data-cb]").forEach((cb) => (cb.onclick = (e) => {
+    e.stopPropagation();
+    const id = cb.dataset.cb;
+    cb.checked ? EXCLUDED.delete(id) : EXCLUDED.add(id);
+    saveExcluded(); fillParts(); drawList();
+  }));
+  $("#partlist").querySelectorAll(".row").forEach((row) => (row.onclick = () => showPart(row.dataset.id)));
+}
+
+function openDrawer(open) {
+  $("#drawer").hidden = !open;
+  if (open) $("#progdrawer").hidden = true;
+  syncBackdrop();
+  if (open) { drawList(); $("#search").focus(); }
+}
+function openProgram(open) {
+  $("#progdrawer").hidden = !open;
+  if (open) $("#drawer").hidden = true;
+  syncBackdrop();
+}
+const syncBackdrop = () => ($("#backdrop").hidden = $("#drawer").hidden && $("#progdrawer").hidden);
+const closePanels = () => { openDrawer(false); openProgram(false); };
+$("#partsBtn").onclick = () => openDrawer($("#drawer").hidden);
+$("#progBtn").onclick = () => openProgram($("#progdrawer").hidden);
+$("#drawerClose").onclick = () => openDrawer(false);
+$("#progClose").onclick = () => openProgram(false);
+$("#backdrop").onclick = closePanels;
+$("#search").oninput = drawList;
+$("#filters").querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => {
+  filter = b.dataset.f;
+  $("#filters").querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b));
+  drawList();
+}));
+$("#selAll").onclick = () => { shown().forEach((p) => EXCLUDED.delete(p.id)); saveExcluded(); fillParts(); drawList(); };
+$("#selNone").onclick = () => {
+  shown().forEach((p) => EXCLUDED.add(p.id));
+  if (!included().length) EXCLUDED.delete(shown()[0]?.id);  // never empty the list
+  saveExcluded(); fillParts(); drawList();
+};
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closePanels(); closeMenu(); }
+  if ($("#compare").hidden || !$("#drawer").hidden || !$("#progdrawer").hidden || e.target.matches("input, select, textarea")) return;
+  if (e.key === "ArrowLeft") step(-1);
+  if (e.key === "ArrowRight") step(1);
+});
+
+/* ---------- live race ---------- */
+let CONFIG = null, EXAMPLES = [], currentExample = null;
+const viewers = {};
+const targetViewer = new Viewer($("#target"), TRUTH);
+function card(key) { return document.getElementById("lane-" + key); }
+function setv(key, field, value) { const el = card(key)?.querySelector(`[data-k="${field}"]`); if (el) el.textContent = value; }
+function pill(key, cls, text) { const el = card(key)?.querySelector('[data-k="pill"]'); if (el) { el.className = "pill " + cls; el.textContent = text; } }
+
+function buildLanes(laneList) {
+  $("#lanes").innerHTML = "";
+  for (const k in viewers) delete viewers[k];
+  let i = 0;
+  for (const l of laneList) {
+    const el = document.createElement("div");
+    el.className = "card" + (l.dedicated ? " ours" : "");
+    el.id = "lane-" + l.key;
+    el.innerHTML = `
+      <div class="head"><h3>${esc(l.label)}</h3><span class="pill">${l.dedicated ? "ours · Baseten" : "Model API" + (l.effort ? " · " + l.effort : "")}</span></div>
+      <div class="slug">${esc(l.model)}</div>
+      <div class="meters">
+        <div class="m"><b data-k="ttft">–</b><span>first token s</span></div>
+        <div class="m"><b data-k="e2e">–</b><span>total s</span></div>
+        <div class="m"><b data-k="tok">–</b><span>tokens</span></div>
+        <div class="m"><b data-k="cost">–</b><span>${l.dedicated ? "$/part (GPU)" : "$/part"}</span></div>
+      </div>
+      <div class="stats" data-k="status">idle</div>
+      <div class="viewer" data-k="viewer"><span class="hint">prediction over reference (edges)</span></div>
+      <div><span class="pill" data-k="pill">waiting</span></div>
+      <details><summary>code</summary><pre data-k="code"></pre></details>`;
+    $("#lanes").appendChild(el);
+    viewers[l.key] = new Viewer(el.querySelector('[data-k="viewer"]'), l.dedicated ? OURS : RIVALS[i++ % RIVALS.length]);
+  }
+}
+
+function showInput() {
+  const image = $("#modality").value === "image";
+  $("#spec").hidden = image;
+  $("#sheetbox").hidden = !image;
+  $("#note").textContent = image
+    ? "Answers recorded in the benchmark run, replayed at their measured speed. Parts are held out."
+    : "Every model gets the same written spec.";
+  $("#rsheet").hidden = !(image && currentExample && currentExample.sheet);
+  if (image && currentExample && currentExample.sheet) {
+    $("#rsheet").src = currentExample.sheet;
+    const b = currentExample.bbox;
+    $("#rbbox").textContent = b ? `bounding box X ${b[0].toFixed(4)}, Y ${b[1].toFixed(4)}, Z ${b[2].toFixed(4)}` : "";
+  }
+}
+$("#modality").onchange = showInput;
+function useExample(x) {
+  currentExample = x;
+  if (![...$("#examples").options].some((o) => o.value === x.id)) {
+    $("#examples").add(new Option(x.title || x.id, x.id));
+    EXAMPLES.push(x);
+  }
+  $("#examples").value = x.id;
+  if (x.spec) $("#spec").value = x.spec;
+  showInput();
+}
+$("#examples").onchange = (e) => {
+  const x = EXAMPLES.find((y) => y.id === e.target.value);
+  if (x) useExample(x);
+};
+
+async function handle(ev, state) {
+  if (ev.type === "target") {
+    await targetViewer.setTarget(ev.mesh, "solid");
+    $("#tstats").textContent = `· ${ev.stats.n_faces} faces`;
+    for (const k in viewers) viewers[k].setTarget(ev.mesh, "edges");
+    return;
+  }
+  const s = state[ev.lane];
+  if (!s) return;
+  if ((ev.type === "reasoning" || ev.type === "content") && s.ttft == null) {
+    s.ttft = (performance.now() - s.t0) / 1000;
+    setv(ev.lane, "ttft", s.ttft.toFixed(2));
+  }
+  if (ev.type === "reasoning") {
+    s.reasoning += ev.text.length;
+    setv(ev.lane, "status", `thinking… (~${Math.round(s.reasoning / 4)} tokens)`);
+  } else if (ev.type === "content") {
+    s.code += ev.text;
+    setv(ev.lane, "status", "writing code…");
+    setv(ev.lane, "code", s.code);
+  } else if (ev.type === "status") {
+    setv(ev.lane, "status", ev.text);
+  } else if (ev.type === "restart") {
+    s.code = ""; s.reasoning = 0;
+    setv(ev.lane, "status", "connection dropped, retrying…");
+  } else if (ev.type === "generated") {
+    s.done = true;
+    setv(ev.lane, "e2e", num(ev.metrics.e2e_s, 1));
+    setv(ev.lane, "tok", ev.metrics.output_tokens ?? "–");
+    setv(ev.lane, "cost", money(ev.metrics.cost_usd));
+    setv(ev.lane, "status", ev.error ? "API error: " + ev.error : "building the solid…");
+  } else if (ev.type === "graded") {
+    s.done = true;
+    if (ev.code) setv(ev.lane, "code", ev.code);
+    if (!ev.runs) {
+      pill(ev.lane, "no", "✗ " + (ev.error || "failed").slice(0, 60));
+      setv(ev.lane, "status", "code did not produce a solid");
+      return;
+    }
+    await viewers[ev.lane].setPart(ev.mesh);
+    if (ev.iou_aligned == null) pill(ev.lane, "", `built · ${ev.stats?.n_faces ?? "?"} faces`);
+    else if (ev.iou_aligned >= 0.9) pill(ev.lane, "ok", `✓ correct · IoU ${ev.iou_aligned.toFixed(3)}`);
+    else pill(ev.lane, "no", `✗ wrong part · IoU ${ev.iou_aligned.toFixed(3)}`);
+    setv(ev.lane, "status", ev.candidates ? `picked from ${ev.candidates} by render-check (${(ev.render_score ?? 0).toFixed(3)})` : "done");
+  } else if (ev.type === "error") {
+    s.done = true;
+    pill(ev.lane, "no", "✗ " + ev.error.slice(0, 60));
+  }
+}
+
+/* The published build has no server to race against, so it replays this part's answers from the benchmark run.
+   Every figure on screen is the measured one. Only the waiting is compressed, by a single factor applied to all
+   lanes, so a 49 second lane does not stall the page; the timers still count in recorded seconds. */
+let replaySpeed = 1;
+async function replayRace(state) {
+  const id = currentExample && currentExample.id;
+  if (!id) { $("#note").textContent = "Pick a part first."; return; }
+  const d = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
+  if (d.reference && d.reference.mesh) await handle({ type: "target", mesh: d.reference.mesh, stats: d.reference.stats }, state);
+  const slowest = Math.max(1, ...d.lanes.map((l) => l.e2e_s || 0));
+  replaySpeed = Math.min(1, 9 / slowest);  // the slowest lane lands in about nine seconds
+  await Promise.all(d.lanes.map(async (l) => {
+    if (!state[l.key]) return;
+    await new Promise((done) => setTimeout(done, (l.e2e_s || 0) * 1000 * replaySpeed));
+    await handle({ type: "generated", lane: l.key,
+                   metrics: { e2e_s: l.e2e_s, output_tokens: l.output_tokens, cost_usd: l.cost_usd } }, state);
+    await handle({ type: "graded", lane: l.key, code: l.code, runs: l.runs, error: l.error, mesh: l.mesh,
+                   iou_aligned: l.iou_aligned, stats: l.stats, candidates: l.best_of > 1 ? l.best_of : null }, state);
+  }));
+  replaySpeed = 1;
+}
+
+$("#go").onclick = async () => {
+  const spec = $("#spec").value.trim();
+  const image = $("#modality").value === "image";
+  if (image && !(currentExample && currentExample.sheet)) { $("#note").textContent = "Pick a held-out part first."; return; }
+  if (!image && !spec) { $("#note").textContent = "Write a spec first."; return; }
+  const state = {};
+  targetViewer.clear();
+  $("#tstats").textContent = "";
+  for (const l of CONFIG.lanes) {
+    state[l.key] = { t0: performance.now(), done: false, reasoning: 0, ttft: null, code: "" };
+    for (const k of ["ttft", "e2e", "tok", "cost"]) setv(l.key, k, "–");
+    setv(l.key, "status", "waiting for first token…");
+    setv(l.key, "code", "");
+    pill(l.key, "", "running");
+    viewers[l.key].clear();
+  }
+  $("#go").disabled = true;
+  $("#note").textContent = "racing…";
+  const clock = setInterval(() => {
+    for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000 / replaySpeed).toFixed(1));
+  }, 100);
+  try {
+    if (window.CADABRA_STATIC) {
+      await replayRace(state);
+      $("#note").textContent = "done";
+      return;
+    }
+    const res = await fetch("/api/race", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null, modality: $("#modality").value }),
+    });
+    if (!res.ok) { $("#note").textContent = "race failed: " + (await res.text()).slice(0, 120); return; }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i);
+        buf = buf.slice(i + 2);
+        if (chunk.startsWith("data: ")) await handle(JSON.parse(chunk.slice(6)), state);
+      }
+    }
+    $("#note").textContent = "done";
+  } finally {
+    clearInterval(clock);
+    $("#go").disabled = false;
+  }
+};
+
+/* ---------- benchmark table ---------- */
+async function loadScoreboard() {
+  const sb = await (await fetch("/api/scoreboard")).json();
+  if (!sb || !sb.lanes) return;
+  $("#sbmeta").textContent = `· ${sb.n} held-out parts, never seen in training`;
+  const runs = [...new Set(sb.lanes.flatMap((l) => l.runs || []))];
+  $("#sbfoot").textContent = `Success = the program runs and its solid overlaps the reference by 0.9 or more (aligned IoU). `
+    + `Cost is API list price for the frontier lanes and the GPU hourly price over measured throughput for ours. `
+    + `Runs: ${runs.join(", ")}.`;
+  const tier = (l, k) => (l.tiers && l.tiers[k] ? pct(l.tiers[k].success) : "–");
+  $("#scoreboard").innerHTML = `<table><thead><tr>
+      <th>Model</th><th>Correct [95% CI]</th><th>Simple</th><th>Medium</th><th>Complex</th><th>Multi-part</th>
+      <th>Latency p50</th><th>$ / 1K parts</th></tr></thead><tbody>` +
+    sb.lanes.map((l) => `<tr class="${l.lane === "specialist" ? "ours" : ""}">
+      <td>${esc(l.label)}${l.best_of > 1 ? " · best of " + l.best_of : ""}</td>
+      <td>${pct(l.success)} <span class="muted">[${pct(l.success_ci95[0])}, ${pct(l.success_ci95[1])}]</span></td>
+      <td>${tier(l, "simple (<=6 faces)")}</td><td>${tier(l, "medium (7-12)")}</td>
+      <td>${tier(l, "complex (>=13)")}</td><td>${tier(l, "multi-part")}</td>
+      <td>${num(l.latency_p50, 1)} s</td><td>${l.cost_per_1k_usd == null ? "–" : "$" + l.cost_per_1k_usd.toFixed(2)}</td>
+    </tr>`).join("") + "</tbody></table>";
+}
+
+/* ---------- start ---------- */
+CONFIG = await (await fetch("/api/config")).json();
+$("#modality").value = CONFIG.default_modality || "image";
+buildLanes(CONFIG.lanes);
+EXAMPLES = await (await fetch("/api/examples")).json();
+$("#examples").innerHTML = EXAMPLES.map((e) => `<option value="${esc(e.id)}">${esc(e.title)} · ${e.n_parts}-part, ${e.n_faces} faces</option>`).join("");
+if (EXAMPLES.length) useExample(EXAMPLES[0]); else showInput();
+await loadParts();
+loadScoreboard();
+if (new URLSearchParams(location.search).get("tab") === "race") showTab("race");
+</script>
+</body>
+</html>

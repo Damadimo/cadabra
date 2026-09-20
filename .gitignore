@@ -26,3 +26,4 @@ training/vlm/data/
 
 # Second batch of sheet-model parts (rebuild: python -m cadabra.cad.splits --extra2)
 data/cad/train_vlm_extra2.jsonl
+web/            # built by scripts/export_static.py, deployed not committed

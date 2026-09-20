@@ -259,11 +259,14 @@ def main() -> None:
         check(len(page.query_selector_all("#lanes > .card")) == len(lanes_cfg), "one card per race lane")
         check(page.eval_on_selector("#examples", "e => !!e.value"), "a part is preselected for the race")
         check(page.eval_on_selector("#rsheet", "i => !i.hidden && i.naturalWidth > 0"), "race sheet image loads")
-        page.select_option("#modality", "text")
-        page.wait_for_timeout(400)
-        check(page.is_visible("#spec") and not page.is_visible("#rsheet"), "written-spec mode swaps the input")
-        page.select_option("#modality", "image")
-        page.wait_for_timeout(400)
+        if page.eval_on_selector("#modality", "e => [...e.options].some(o => o.value === 'text')"):
+            page.select_option("#modality", "text")
+            page.wait_for_timeout(400)
+            check(page.is_visible("#spec") and not page.is_visible("#rsheet"), "written-spec mode swaps the input")
+            page.select_option("#modality", "image")
+            page.wait_for_timeout(400)
+        else:
+            print("  --   written-spec mode not offered (static build)")
 
         if args.race:
             print("\nlive race from the compare tab")

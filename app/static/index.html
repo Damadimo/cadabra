@@ -727,6 +727,28 @@ async function handle(ev, state) {
   }
 }
 
+/* The published build has no server to race against, so it replays this part's answers from the benchmark run.
+   Every figure on screen is the measured one. Only the waiting is compressed, by a single factor applied to all
+   lanes, so a 49 second lane does not stall the page; the timers still count in recorded seconds. */
+let replaySpeed = 1;
+async function replayRace(state) {
+  const id = currentExample && currentExample.id;
+  if (!id) { $("#note").textContent = "Pick a part first."; return; }
+  const d = await (await fetch(`/api/compare/${encodeURIComponent(id)}`)).json();
+  if (d.reference && d.reference.mesh) await handle({ type: "target", mesh: d.reference.mesh, stats: d.reference.stats }, state);
+  const slowest = Math.max(1, ...d.lanes.map((l) => l.e2e_s || 0));
+  replaySpeed = Math.min(1, 9 / slowest);  // the slowest lane lands in about nine seconds
+  await Promise.all(d.lanes.map(async (l) => {
+    if (!state[l.key]) return;
+    await new Promise((done) => setTimeout(done, (l.e2e_s || 0) * 1000 * replaySpeed));
+    await handle({ type: "generated", lane: l.key,
+                   metrics: { e2e_s: l.e2e_s, output_tokens: l.output_tokens, cost_usd: l.cost_usd } }, state);
+    await handle({ type: "graded", lane: l.key, code: l.code, runs: l.runs, error: l.error, mesh: l.mesh,
+                   iou_aligned: l.iou_aligned, stats: l.stats, candidates: l.best_of > 1 ? l.best_of : null }, state);
+  }));
+  replaySpeed = 1;
+}
+
 $("#go").onclick = async () => {
   const spec = $("#spec").value.trim();
   const image = $("#modality").value === "image";
@@ -746,9 +768,14 @@ $("#go").onclick = async () => {
   $("#go").disabled = true;
   $("#note").textContent = "racing…";
   const clock = setInterval(() => {
-    for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000).toFixed(1));
+    for (const k in state) if (!state[k].done) setv(k, "e2e", ((performance.now() - state[k].t0) / 1000 / replaySpeed).toFixed(1));
   }, 100);
   try {
+    if (window.CADABRA_STATIC) {
+      await replayRace(state);
+      $("#note").textContent = "done";
+      return;
+    }
     const res = await fetch("/api/race", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ spec, example_id: currentExample ? currentExample.id : null, modality: $("#modality").value }),
