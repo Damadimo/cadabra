@@ -130,6 +130,35 @@ def main() -> None:
             worst = max(worst, max(abs(v) for pair in ndc for v in pair))
         check(worst < 1.0, "the part stays inside the frame through a full rotation", f"reaches {worst:.3f} of the frustum")
 
+        # dragging must orbit the axis it looks like it orbits, at a sane speed. OrbitControls fixes its orbit axis
+        # from camera.up when it is built, so rolling the camera later makes a drag fight the view.
+        page.uncheck("#spin")
+        page.wait_for_timeout(1200)
+        stage_box = page.query_selector("#stage").bounding_box()
+        mid = (stage_box["x"] + stage_box["width"] / 2, stage_box["y"] + stage_box["height"] / 2)
+
+        def drag(dx: float, dy: float) -> None:
+            page.mouse.move(*mid)
+            page.mouse.down()
+            for i in range(1, 13):
+                page.mouse.move(mid[0] + dx * i / 12, mid[1] + dy * i / 12)
+                page.wait_for_timeout(16)
+            page.mouse.up()
+            page.wait_for_timeout(1200)
+
+        before = page.evaluate("window.__fit()")
+        check(before["up"] == [0, 1, 0], "the camera keeps the up OrbitControls was built with", str(before["up"]))
+        drag(stage_box["width"] / 2, 0)
+        after = page.evaluate("window.__fit()")
+        turn = abs(after["azimuth"] - before["azimuth"])
+        turn = min(turn, 2 * 3.14159 - turn)
+        check(0.5 < turn < 2.4, "dragging half the stage turns the part about a quarter turn", f"{turn:.2f} rad")
+        check(abs(after["elevation"] - before["elevation"]) < 0.02, "a sideways drag does not tilt it",
+              f"elevation moved {after['elevation'] - before['elevation']:+.3f} rad")
+        check(abs(after["radius"] - before["radius"]) < 1e-3, "a sideways drag does not change the distance",
+              f"radius moved {after['radius'] - before['radius']:+.4f}")
+        page.check("#spin")
+
         for _ in range(8):  # fast part changes: a mesh from a cancelled load must not be left in the scene
             page.click("#next")
             page.wait_for_timeout(110)
