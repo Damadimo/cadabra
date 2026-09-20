@@ -1,5 +1,7 @@
 # Cadabra
 
+**Live demo: [cadabra-cad.vercel.app](https://cadabra-cad.vercel.app)** (published build: every solid pre-built, the race replays recorded answers at their measured speed; the live race needs the local server)
+
 **A 4B vision model, post-trained on a Baseten H100, that reads an engineering drawing sheet and writes the CadQuery
 program that builds the part. Graded by the geometry itself: every answer is executed and its solid is compared to
 the reference with exact volumetric IoU.**

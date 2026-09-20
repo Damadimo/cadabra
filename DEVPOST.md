@@ -1,5 +1,9 @@
 # Devpost draft: Cadabra
 
+## Links
+- Live demo: https://cadabra-cad.vercel.app
+- Repo: https://github.com/Damadimo/cadabra
+
 ## Tagline
 A 4B model we post-trained on Baseten reads engineering drawings into CAD code and beats frontier models at it,
 graded by the geometry itself.
