@@ -447,11 +447,15 @@ function shown() {
   });
 }
 
+const shortLabel = (label) => label
+  .replace("Cadabra 4B (ours)", "ours").replace(" · best of ", " ×").replace(" · 1 sample", "")
+  .replace("GLM-5.3 ", "").replace("Kimi ", "").replace(" (high)", "");
+
 function drawList() {
   const list = shown();
   const models = (PARTS.find((p) => p.results)?.results) || [];
-  $("#legend").innerHTML = "each row: " + models.map((r) =>
-    `<span class="dot na" style="margin:0 4px 0 8px"></span>${esc(r.label.replace(" (high)", "").replace("Cadabra 4B (ours)", "ours"))}`).join("");
+  $("#legend").innerHTML = "marks: " + models.map((r) =>
+    `<span class="dot na" style="margin:0 5px 0 0"></span>${esc(shortLabel(r.label))}`).join(" &nbsp; ");
   $("#drawerCount").textContent = `${list.length} shown · ${included().length} included`;
   $("#partlist").innerHTML = list.slice(0, 400).map((p) => `
     <div class="row ${p.id === $("#parts").value ? "on" : ""}" data-id="${esc(p.id)}">
