@@ -111,10 +111,40 @@ def main() -> None:
             if lane.get("mesh"):
                 check(canvas_has_content(page, "#stage"), f"answer renders for {lane['label']}")
 
+        print("\nstage contents")
+        shown = page.evaluate("window.__stage()")
+        check(len(shown) == 2, "overlay draws the prediction and the reference, and nothing else", str(len(shown)))
+        if len(shown) == 2:
+            pred, ref = shown
+            check(ref["opacity"] < 1 and pred["opacity"] == 1, "the reference is the translucent one", str([pred["opacity"], ref["opacity"]]))
+            lane = next((x for x in lanes if x.get("iou_aligned") is not None), None)
+            if lane and lane["iou_aligned"] > 0.95:  # the metric aligns the prediction, so the two should sit on top of each other
+                gap = max(abs(a - b) for a, b in zip(pred["lo"] + pred["hi"], ref["lo"] + ref["hi"]))
+                size = max(h - l for h, l in zip(ref["hi"], ref["lo"]))
+                check(gap < 0.08 * size, f"a {lane['iou_aligned']:.3f} IoU prediction lands on the reference", f"corners differ by {gap:.4f} of {size:.4f}")
+        # the stage rotates, so the framing has to hold at every angle, not just the one it starts at
+        worst = 0.0
+        for _ in range(10):
+            page.wait_for_timeout(1300)
+            ndc = page.evaluate("window.__fit()")["ndc"]
+            worst = max(worst, max(abs(v) for pair in ndc for v in pair))
+        check(worst < 1.0, "the part stays inside the frame through a full rotation", f"reaches {worst:.3f} of the frustum")
+
+        for _ in range(8):  # fast part changes: a mesh from a cancelled load must not be left in the scene
+            page.click("#next")
+            page.wait_for_timeout(110)
+        page.wait_for_timeout(2500)
+        check(len(page.evaluate("window.__stage()")) == 2, "no mesh left behind after fast part changes", str(page.evaluate("window.__stage()")))
+        for _ in range(8):
+            page.click("#prev")
+            page.wait_for_timeout(110)
+        page.wait_for_timeout(2500)
+
         print("\ncontrols")
         page.uncheck("#overlay")
         page.wait_for_timeout(700)
         check("prediction only" in page.inner_text("#stagehint"), "overlay off changes the hint", page.inner_text("#stagehint"))
+        check(len(page.evaluate("window.__stage()")) == 1, "overlay off leaves only the prediction")
         page.check("#overlay")
         page.wait_for_timeout(700)
         check("reference" in page.inner_text("#stagehint"), "overlay on changes the hint", page.inner_text("#stagehint"))

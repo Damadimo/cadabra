@@ -231,8 +231,9 @@ const loader = new STLLoader();
 const OURS = 0x10b85a, TRUTH = 0x8a9a8e, RIVALS = [0x60758a, 0x93a08f, 0x7d8fa8];
 
 class Viewer {
-  constructor(el, color, zoom = 1.05) {
+  constructor(el, color, zoom = 1.12) {  // zoom = margin left around the part
     this.el = el; this.color = color; this.zoom = zoom; this.part = null; this.target = null;
+    this.partSeq = 0; this.targetSeq = 0;  // a mesh that arrives after a newer load started is dropped, not added
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (err) {  // no WebGL: scores and code still work
@@ -265,6 +266,7 @@ class Viewer {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.fit();  // the framing depends on the aspect ratio
   }
   async geometry(key) {
     const g = loader.parse(await (await fetch(`/api/mesh/${key}`)).arrayBuffer());
@@ -274,7 +276,9 @@ class Viewer {
   drop(o) { if (o) { this.group.remove(o); o.geometry.dispose(); } }
   async setPart(key, color) {
     if (!this.renderer) return;
+    const seq = ++this.partSeq;
     const g = await this.geometry(key);
+    if (seq !== this.partSeq) { g.dispose(); return; }
     this.drop(this.part);
     this.part = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: color ?? this.color, metalness: 0.05, roughness: 0.55, side: THREE.DoubleSide }));
     this.group.add(this.part);
@@ -283,11 +287,14 @@ class Viewer {
   /* mode: "ghost" (translucent reference over the prediction), "edges", "solid", or null to remove */
   async setTarget(key, mode = "edges") {
     if (!this.renderer) return;
-    this.drop(this.target); this.target = null;
-    if (!key || !mode) { this.fit(); return; }
+    const seq = ++this.targetSeq;
+    if (!key || !mode) { this.drop(this.target); this.target = null; this.fit(); return; }
     const g = await this.geometry(key);
+    if (seq !== this.targetSeq) { g.dispose(); return; }
+    this.drop(this.target); this.target = null;
     if (mode === "edges") {
       this.target = new THREE.LineSegments(new THREE.EdgesGeometry(g, 20), new THREE.LineBasicMaterial({ color: 0x51695a, transparent: true, opacity: 0.6 }));
+      g.dispose();  // the edge geometry is its own; the solid one is not shown
     } else {
       this.target = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
         color: TRUTH, metalness: 0.05, roughness: 0.65, transparent: mode === "ghost", opacity: mode === "ghost" ? 0.34 : 1,
@@ -298,16 +305,57 @@ class Viewer {
     this.fit();
   }
   spin(on) { if (this.controls) this.controls.autoRotate = on; }
-  clear() { if (!this.renderer) return; this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
+  clear() { if (!this.renderer) return; this.partSeq++; this.targetSeq++; this.drop(this.part); this.drop(this.target); this.part = this.target = null; }
+  /* Frame the part. Two things make this more than "fit the bounding sphere": the canvas is much wider than it is
+     tall, and the stage rotates, so a framing that suits the angle we start at clips the part half a turn later.
+     So: stand the camera on the part's shortest axis (a long part then runs across the width, the way the sheet's
+     isometric view shows it), and fit the corners at a full turn of azimuths, which is the cylinder the part sweeps
+     out. Rotation-safe like the bounding sphere, but as tight as the part's real shape allows. */
   fit() {
     if (!this.renderer) return;
     const box = new THREE.Box3().setFromObject(this.group);
     if (box.isEmpty()) return;
-    const c = box.getCenter(new THREE.Vector3());
-    const r = box.getSize(new THREE.Vector3()).length() / 2 || 1;
-    const d = (r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2))) * this.zoom;
-    this.controls.target.copy(c);
-    this.camera.position.copy(c).add(new THREE.Vector3(1, 0.75, 1.15).normalize().multiplyScalar(d));
+    const dir = new THREE.Vector3(1, 0.75, 1.15).normalize();
+    const size = box.getSize(new THREE.Vector3()).toArray();
+    const up = new THREE.Vector3(0, 1, 0);
+    if (this.camera.aspect > 1.3 && Math.max(...size) > 2 * Math.min(...size)) {
+      const axes = [0, 1, 2].sort((a, b) => size[a] - size[b]);
+      const axis = (i) => new THREE.Vector3(+(axes[i] === 0), +(axes[i] === 1), +(axes[i] === 2));
+      up.copy(Math.abs(axis(0).dot(dir)) < 0.9 ? axis(0) : axis(1));
+    }
+    const box3 = [[box.min.x, box.max.x], [box.min.y, box.max.y], [box.min.z, box.max.z]];
+    const centre = box.getCenter(new THREE.Vector3());
+    const box8 = [];
+    for (const x of box3[0]) for (const y of box3[1]) for (const z of box3[2]) box8.push(new THREE.Vector3(x, y, z));
+
+    // The camera orbits `up` through the target, so the target must sit on the part's own axis: centre it along `up`
+    // only. Shifting it sideways would tilt the sweep and let a corner swing out of frame.
+    const heights = box8.map((v) => v.dot(up));
+    const target = centre.clone().addScaledVector(up, (Math.min(...heights) + Math.max(...heights)) / 2 - centre.dot(up));
+    const swept = [];
+    for (const v of box8) {
+      const rel = v.clone().sub(target);
+      for (let k = 0; k < 24; k++) swept.push(rel.clone().applyAxisAngle(up, (k * Math.PI) / 12).add(target));
+    }
+
+    let d = box.getSize(new THREE.Vector3()).length() || 1;
+    for (let pass = 0; pass < 6; pass++) {
+      this.camera.up.copy(up);
+      this.camera.position.copy(target).addScaledVector(dir, d);
+      this.camera.near = d / 200; this.camera.far = d * 200;
+      this.camera.updateProjectionMatrix();
+      this.camera.lookAt(target);
+      this.camera.updateMatrixWorld();
+      let reach = 0;
+      for (const v of swept) {
+        const q = v.clone().project(this.camera);
+        reach = Math.max(reach, Math.abs(q.x), Math.abs(q.y));
+      }
+      if (!Number.isFinite(reach) || reach <= 0) break;
+      d *= reach * this.zoom;
+    }
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).addScaledVector(dir, d);
     this.camera.near = d / 200; this.camera.far = d * 200;
     this.camera.updateProjectionMatrix();
   }
@@ -326,7 +374,26 @@ for (const name of ["compare", "race"]) $("#tab-" + name).onclick = () => showTa
 /* ---------- compare: one stage; a dropdown picks whose answer it shows, a drawer curates the parts ---------- */
 let PARTS = [], DATA = null, picked = 1, filter = "all";
 const EXCLUDED = new Set(JSON.parse(localStorage.getItem("cadabra.excluded") || "[]"));
-const stage = new Viewer($("#stage"), OURS, 0.85);
+const stage = new Viewer($("#stage"), OURS, 1.25);
+// what the stage is actually showing, so scripts/ui_check.py can catch a mesh left behind by a cancelled load
+// and check that the reference really does sit on top of the prediction
+window.__fit = () => {
+  const box = new THREE.Box3().setFromObject(stage.group);
+  let lo = [9, 9], hi = [-9, -9];
+  for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+    const q = new THREE.Vector3(x, y, z).project(stage.camera);
+    lo = [Math.min(lo[0], q.x), Math.min(lo[1], q.y)]; hi = [Math.max(hi[0], q.x), Math.max(hi[1], q.y)];
+  }
+  return { ndc: [lo, hi].map((a) => a.map((v) => +v.toFixed(3))), up: stage.camera.up.toArray(),
+           aspect: +stage.camera.aspect.toFixed(3), zoom: stage.zoom };
+};
+window.__stage = () => stage.group.children.map((o) => {
+  const a = o.geometry.attributes.position.array;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < a.length; i += 3) for (let j = 0; j < 3; j++) { lo[j] = Math.min(lo[j], a[i + j]); hi[j] = Math.max(hi[j], a[i + j]); }
+  return { type: o.type, lo: lo.map((v) => +v.toFixed(4)), hi: hi.map((v) => +v.toFixed(4)),
+           at: [o.position.x, o.position.y, o.position.z], opacity: o.material.opacity };
+});
 
 const included = () => PARTS.filter((p) => !EXCLUDED.has(p.id));
 const saveExcluded = () => localStorage.setItem("cadabra.excluded", JSON.stringify([...EXCLUDED]));
@@ -349,9 +416,15 @@ function fillParts() {
   $("#partsCount").textContent = `${list.length} of ${PARTS.length}`;
 }
 
+// Open on a part that makes the point: not simple, we get it right, both frontier models do not. Among those prefer
+// a compact one, because a part twenty times longer than it is thick renders as a sliver in a wide canvas, then the
+// one with the most faces.
+const slenderness = (p) => (p.extents && p.extents.length === 3 ? Math.max(...p.extents) / Math.max(Math.min(...p.extents), 1e-6) : 99);
 function pickDefault() {
   const pool = included().length ? included() : PARTS;
-  return (pool.find((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple") || pool[0]).id;
+  const hero = pool.filter((p) => p.ours_correct && p.frontier_correct === 0 && p.tier !== "simple");
+  const compact = hero.filter((p) => slenderness(p) <= 5);
+  return ((compact.length ? compact : hero).sort((a, b) => (b.n_faces || 0) - (a.n_faces || 0))[0] || pool[0]).id;
 }
 
 const entries = () => [{ ...DATA.reference, truth: true, label: "Reference (dataset)" }, ...DATA.lanes];
