@@ -1,0 +1,18 @@
+{
+  "audited_total": 82659,
+  "audited_by_split": {
+    "train_high": 8177,
+    "train_middle": 66532,
+    "test": 7950
+  },
+  "bench": 500,
+  "bench_multi_part": 43,
+  "train_high": 5698,
+  "train_middle": 24868,
+  "sheets_trained_on": 30260,
+  "sheets_validation": 306,
+  "share_medium_or_complex": 0.7163,
+  "share_multi_part": 0.3537,
+  "source_overlap_train_bench": 0,
+  "dropped_same_geometry_as_bench": 1886
+}

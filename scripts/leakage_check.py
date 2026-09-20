@@ -56,8 +56,10 @@ def closest(bench: list[dict], train: list[dict]) -> dict[str, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--ours", default="ours-img")
+    ap.add_argument("--ours", default="ours2-img,ours2-img-bo8",
+                    help="comma-separated run tags for our lanes; the shipped model, not an older epoch")
     ap.add_argument("--frontier", default="sota-img,sota-img-rest")
+    ap.add_argument("--json", help="also write the table as JSON, for the site to render")
     ap.add_argument("--threshold", type=float, default=0.01, help="relative extent difference counted as a near-duplicate")
     args = ap.parse_args()
     audit = audit_index()
@@ -81,15 +83,18 @@ def main() -> None:
 
     # one row per model, pooling the frontier's runs (a part graded twice counts once)
     pools: dict[str, dict[str, bool]] = {}
-    for tag in [args.ours] + args.frontier.split(","):
+    ours_tags = [t for t in args.ours.split(",") if t.strip()]
+    for tag in ours_tags + args.frontier.split(","):
         run = latest(tag)
         if not run:
             continue
         for r in read_jsonl(run / "results.jsonl"):
             if infra_failed(r):
                 continue
-            name = "ours" if r["lane"] == "specialist" else r["lane"]
+            # our lanes are kept apart by run tag: one sample and best-of-8 are different answers to the same part
+            name = tag if r["lane"] == "specialist" else r["lane"]
             pools.setdefault(name, {})[r["id"]] = bool(r["success"])
+    summary: list[dict] = []
     print(f"\naccuracy on the {len(near)} near-duplicate parts vs the other {len(bench) - len(near)}:")
     for name, got in pools.items():
         a = [v for i, v in got.items() if i in near]
@@ -97,6 +102,15 @@ def main() -> None:
         if not a or not b:
             continue
         print(f"  {name:22s} near-dup {100 * mean(a):5.1f}% (n={len(a):3d})   no near-dup {100 * mean(b):5.1f}% (n={len(b):3d})   gap {100 * (mean(a) - mean(b)):+5.1f}")
+        summary.append({"lane": name, "ours": name in ours_tags, "near_dup": mean(a), "clean": mean(b),
+                        "n_near_dup": len(a), "n_clean": len(b)})
+
+    if args.json:
+        import json as _json
+        out = {"n_near_dup": len(near), "n_clean": len(bench) - len(near),
+               "shared_source_parts": 0, "shared_geometry_signatures": 0, "rows": summary}
+        Path(args.json).write_text(_json.dumps(out, indent=2) + "\n")
+        print(f"\nwrote {args.json}")
 
 
 if __name__ == "__main__":

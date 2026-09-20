@@ -1,6 +1,88 @@
 /* The written walkthrough: what the model is, how the data was built, how a part is graded, and what the
    numbers are. Static content, so it renders on the server and ships as HTML. */
 import "./how-it-works.css";
+import scoreboard from "@/public/data/scoreboard.json";
+import provenance from "@/public/data/provenance.json";
+import leakage from "@/public/data/leakage.json";
+
+const pct = (x) => (x == null ? "–" : (100 * x).toFixed(1) + "%");
+const tier = (lane, key) => pct(lane.tiers?.[key]?.success);
+const laneName = (lane) =>
+  lane.label.replace("Cadabra 4B (ours)", "Cadabra 4B") + (lane.best_of > 1 ? `, best of ${lane.best_of}` : lane.lane === "specialist" ? ", 1 sample" : "");
+
+/* Both tables below are rendered from the same files the demo reads, so a re-benchmark cannot leave the prose
+   quoting numbers the site no longer shows. Nothing here is typed by hand. */
+const best = scoreboard.lanes.find((l) => l.lane === "specialist" && l.best_of > 1);
+const single = scoreboard.lanes.find((l) => l.lane === "specialist" && l.best_of === 1);
+const others = scoreboard.lanes.filter((l) => l.lane !== "specialist");
+
+function LeakageTable() {
+  const name = (r) => (r.ours ? (r.lane.includes("bo8") ? "Cadabra, best of 8" : "Cadabra, 1 sample")
+    : r.lane.replace("kimi-k3@high", "Kimi K3 (high)").replace("glm-5.3-flash@high", "GLM-5.3 Flash (high)"));
+  const rows = leakage.rows.filter((r) => r.n_clean > 300);  // lanes scored on the whole benchmark, not a subset
+  return (
+    <table>
+      <thead><tr><th>Model</th><th>Near-duplicate ({leakage.n_near_dup})</th><th>No near-duplicate ({leakage.n_clean})</th></tr></thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.lane} className={r.ours ? "ours" : undefined}>
+            <td>{name(r)}</td><td>{pct(r.near_dup)}</td><td>{pct(r.clean)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ResultsTable() {
+  return (
+    <table>
+      <thead>
+        <tr><th>Model</th><th>Correct</th><th>95% CI</th><th>Simple</th><th>Medium</th><th>Complex</th><th>Multi</th><th>$ / 1K</th><th>p50</th></tr>
+      </thead>
+      <tbody>
+        {scoreboard.lanes.map((lane, i) => (
+          <tr key={i} className={lane.lane === "specialist" ? "ours" : undefined}>
+            <td>{laneName(lane)}</td>
+            <td>{pct(lane.success)}</td>
+            <td>{lane.success_ci95 ? `${(100 * lane.success_ci95[0]).toFixed(0)}–${(100 * lane.success_ci95[1]).toFixed(0)}` : "–"}</td>
+            <td>{tier(lane, "simple (<=6 faces)")}</td>
+            <td>{tier(lane, "medium (7-12)")}</td>
+            <td>{tier(lane, "complex (>=13)")}</td>
+            <td>{tier(lane, "multi-part")}</td>
+            <td>{lane.cost_per_1k_usd == null ? "–" : `$${lane.cost_per_1k_usd.toFixed(2)}`}</td>
+            <td>{lane.latency_p50 == null ? "–" : `${lane.latency_p50.toFixed(1)} s`}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ProvenanceTable() {
+  const n = (x) => x.toLocaleString("en-US");
+  const p = provenance;
+  const rows = [
+    ["Audited", p.audited_total, "Every reference program run and checked against its own spec"],
+    ["Benchmark, held out", p.bench, `${n(p.bench - p.bench_multi_part)} single-part, ${p.bench_multi_part} multi-part, held out by source part and by geometry`],
+    ["Training, train_high", p.train_high, "What remains after removing benchmark sources and geometries"],
+    ["Training, train_middle", p.train_middle, "Two batches, weighted toward medium, complex and multi-part"],
+    ["Sheets trained on", p.sheets_trained_on,
+      `Plus ${n(p.sheets_validation)} validation. ${Math.round(100 * p.share_medium_or_complex)}% medium or complex, ${Math.round(100 * p.share_multi_part)}% multi-part`],
+  ];
+  return (
+    <table>
+      <thead><tr><th>Set</th><th>Parts</th><th className="l">What it is</th></tr></thead>
+      <tbody>
+        {rows.map(([name, count, what], i) => (
+          <tr key={name} className={i === 1 || i === rows.length - 1 ? "ours" : undefined}>
+            <td>{name}</td><td>{n(count)}</td><td className="l">{what}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 export const metadata = { title: "Cadabra · How it works" };
 
@@ -40,19 +122,18 @@ export default function HowItWorks() {
     <h1 className="display">Frontier models write CAD from a spec. Give them a drawing and they fall apart.</h1>
     <p className="lede">
       Kimi K3 gets 95% of our held-out parts right from a text description. Hand it the same part as a four-view
-      drawing sheet and it drops to 61.8%. That gap is narrow, it matters, and it can be graded exactly.
+      drawing sheet and it drops to {pct(scoreboard.lanes.find((l) => l.lane.startsWith("kimi")).success)}. That gap is narrow, it matters, and it can be graded exactly.
     </p>
 
     <div className="headline">
-      <b>80.7%</b>
-      <span>correct on 497 held-out parts, sampling eight programs and picking one without an answer key</span>
+      <b>{pct(best.success)}</b>
+      <span>correct on {best.n} held-out parts, sampling {best.best_of} programs and picking one without an answer key</span>
     </div>
     <div className="against">
-      <div><span>GLM-5.3 Flash</span><b>66.2%</b></div>
-      <div><span>Kimi K3</span><b>61.8%</b></div>
-      <div><span>the same 4B, untrained</span><b>14.7%</b></div>
-      <div><span>our cost per 1K parts</span><b>$0.22</b></div>
+      {others.map((l) => (<div key={l.label}><span>{l.label.replace(" (high)", "").replace("Base model (untuned)", "the same 4B, untrained")}</span><b>{pct(l.success)}</b></div>))}
+      <div><span>our cost per 1K parts</span><b>${single.cost_per_1k_usd.toFixed(2)}</b></div>
     </div>
+
   </section>
 
   <section id="pipeline">
@@ -159,18 +240,7 @@ export default function HowItWorks() {
     </div>
 
     <div className="scroll full">
-      <table>
-        <thead>
-          <tr><th>Model</th><th>Correct</th><th>95% CI</th><th>Simple</th><th>Medium</th><th>Complex</th><th>Multi</th><th>$ / 1K</th><th>p50</th></tr>
-        </thead>
-        <tbody>
-          <tr className="ours"><td>Cadabra 4B, best of 8</td><td>80.7%</td><td>77–84</td><td>95.6%</td><td>61.3%</td><td>39.0%</td><td>58.1%</td><td>$1.19</td><td>2.3 s</td></tr>
-          <tr className="ours"><td>Cadabra 4B, 1 sample</td><td>74.8%</td><td>71–79</td><td>92.5%</td><td>52.1%</td><td>25.4%</td><td>53.5%</td><td>$0.22</td><td>2.0 s</td></tr>
-          <tr><td>GLM-5.3 Flash (high)</td><td>66.2%</td><td>62–70</td><td>85.9%</td><td>37.0%</td><td>18.6%</td><td>39.5%</td><td>$1.00</td><td>3.7 s</td></tr>
-          <tr><td>Kimi K3 (high)</td><td>61.8%</td><td>58–66</td><td>81.5%</td><td>30.3%</td><td>18.6%</td><td>39.5%</td><td>$36.82</td><td>10.4 s</td></tr>
-          <tr><td>Qwen3-VL-4B, untuned</td><td>14.7%</td><td>11–18</td><td>19.4%</td><td>8.4%</td><td>1.7%</td><td>16.3%</td><td>–</td><td>–</td></tr>
-        </tbody>
-      </table>
+      <ResultsTable />
     </div>
     <p className="note">Tiers are the reference solid's face count: simple ≤ 6, medium 7 to 12, complex ≥ 13. Frontier lanes get two worked examples and high reasoning effort. Ours gets neither.</p>
 
@@ -205,17 +275,9 @@ export default function HowItWorks() {
     </div>
 
     <div className="scroll full" style={{"marginTop": "var(--s7)"}}>
-      <table>
-        <thead><tr><th>Model</th><th>Near-duplicate (57)</th><th>No near-duplicate (443)</th></tr></thead>
-        <tbody>
-          <tr className="ours"><td>Cadabra, best of 8</td><td>94.7%</td><td>78.8%</td></tr>
-          <tr className="ours"><td>Cadabra, 1 sample</td><td>94.7%</td><td>72.2%</td></tr>
-          <tr><td>GLM-5.3 Flash (high)</td><td>84.2%</td><td>63.9%</td></tr>
-          <tr><td>Kimi K3 (high)</td><td>73.7%</td><td>60.3%</td></tr>
-        </tbody>
-      </table>
+      <LeakageTable />
     </div>
-    <p className="note">57 of 500 benchmark parts have a training part within 1% on every bounding-box axis with the same face and part count. None within 0.1%. Those parts are easier for every model, including ones that never saw our data.</p>
+    <p className="note">{leakage.n_near_dup} of {leakage.n_near_dup + leakage.n_clean} benchmark parts have a training part within 1% on every bounding-box axis with the same face and part count. None within 0.1%. Those parts are easier for every model, including ones that never saw our data.</p>
 
     <div className="callout">
       <b>+14.9 points</b>
@@ -258,16 +320,7 @@ export default function HowItWorks() {
     </div>
 
     <div className="scroll full">
-      <table>
-        <thead><tr><th>Set</th><th>Parts</th><th className="l">What it is</th></tr></thead>
-        <tbody>
-          <tr><td>Audited</td><td>82,659</td><td className="l">Every reference program run and checked against its own spec</td></tr>
-          <tr className="ours"><td>Benchmark, held out</td><td>500</td><td className="l">322 simple, 119 medium, 59 complex, 43 multi-part</td></tr>
-          <tr><td>Training, train_high</td><td>5,698</td><td className="l">What remains after removing benchmark sources and geometries</td></tr>
-          <tr><td>Training, train_middle</td><td>24,868</td><td className="l">Two batches, weighted toward medium, complex and multi-part</td></tr>
-          <tr className="ours"><td>Sheets trained on</td><td>30,260</td><td className="l">Plus 306 validation. 72% medium or complex, 35% multi-part</td></tr>
-        </tbody>
-      </table>
+      <ProvenanceTable />
     </div>
 
     <div className="pair full" style={{"marginTop": "var(--s7)"}}>

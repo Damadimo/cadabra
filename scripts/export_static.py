@@ -96,6 +96,11 @@ def main() -> None:
             print(f"  {n}/{len(parts)} parts, {len(meshes)} solids", flush=True)
 
     (out / "parts.json").write_bytes(json.dumps(kept).encode())
+    # The written walkthrough renders these rather than repeating the numbers in prose.
+    for name in ("provenance.json", "leakage.json"):
+        src_file = ROOT / "data" / "cad" / name
+        if src_file.exists():
+            shutil.copy(src_file, out / name)
     if skipped:
         print(f"  skipped {len(skipped)} parts with no sheet or no saved answers: {skipped[:5]}")
 

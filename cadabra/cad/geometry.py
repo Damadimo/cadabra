@@ -275,9 +275,9 @@ def evaluate(code: str, gold_code: str | None = None, want_mesh: bool = False, w
     shape = fused(shape)
     out["runs"] = True
     out["stats"] = stats(shape)
-    if want_mesh:
-        out["mesh_stl"] = mesh_export(shape)
     if gold_code is None:
+        if want_mesh:
+            out["mesh_stl"] = mesh_export(shape)
         return out
     gold, gold_err = _gold(gold_code)
     if gold is None:
@@ -303,7 +303,11 @@ def evaluate(code: str, gold_code: str | None = None, want_mesh: bool = False, w
             out["chamfer"] = chamfer(best_shape, gold)
         except Exception as e:  # noqa: BLE001
             out["metric_error"] = f"chamfer: {type(e).__name__}: {e}"
+    # Meshing is deliberately last. OpenCascade attaches the triangulation to the shape itself, and a shape carrying
+    # one takes a different path through the boolean ops, which moved iou_aligned by up to 0.6 on some parts: the
+    # figure on screen came from the benchmark but the solid beside it had been aligned under a different rotation.
     if want_mesh:
+        out["mesh_stl"] = mesh_export(shape)
         out["gold_mesh_stl"] = mesh_export(gold)
         out["aligned_mesh_stl"] = mesh_export(best_shape) if best_shape is not shape else out["mesh_stl"]
     out["metric_s"] = round(time.perf_counter() - t0, 4)
