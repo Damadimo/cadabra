@@ -1,11 +1,11 @@
-"""Freeze the demo into a folder of files any static host can serve.
+"""Freeze the demo's data into files the published site reads instead of an API.
 
   uv run python -m uvicorn app.server:app --port 8000 &     # the exporter reads from a running demo
-  uv run python scripts/export_static.py                    # -> web/
+  uv run python scripts/export_static.py                    # -> site/public/data/
 
-The published build has no Python behind it, so there is nothing to keep an API key in and nothing to run CadQuery:
-every solid is built once here and written out as STL. The Compare view is therefore the real thing, and the race
-replays each part's recorded answers at their measured speed instead of calling the models live.
+The published site (site/, Next.js) has no Python behind it, so there is nothing to keep an API key in and nothing to
+run CadQuery: every solid is built once here and written out as STL. The Compare view is therefore the real thing,
+and the race replays each part's recorded answers at their measured speed instead of calling the models live.
 """
 
 from __future__ import annotations
@@ -42,20 +42,20 @@ def safe(rec_id: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--out", type=Path, default=ROOT / "web")
+    ap.add_argument("--out", type=Path, default=ROOT / "site" / "public" / "data")
     ap.add_argument("--limit", type=int, default=0, help="export only the first N parts (for a quick check)")
     args = ap.parse_args()
 
     out = args.out
     if out.exists():
         shutil.rmtree(out)
-    for sub in ("data/compare", "data/mesh", "data/sheet"):
+    for sub in ("compare", "mesh", "sheet"):
         (out / sub).mkdir(parents=True, exist_ok=True)
 
     parts = json.loads(get("/api/parts"))
     if args.limit:
         parts = parts[: args.limit]
-    (out / "data/scoreboard.json").write_bytes(get("/api/scoreboard"))
+    (out / "scoreboard.json").write_bytes(get("/api/scoreboard"))
 
     meshes: set[str] = set()
     skipped: list[str] = []
@@ -70,7 +70,7 @@ def main() -> None:
             skipped.append(rec_id)
             continue
         payload = json.loads(raw)
-        payload["sheet"] = f"data/sheet/{safe(rec_id)}.png"   # no /api/sheet to serve it
+        payload["sheet"] = f"/data/sheet/{safe(rec_id)}.png"   # no /api/sheet to serve it
         for lane in payload["lanes"]:
             lanes.setdefault(lane["key"], {
                 "key": lane["key"], "label": lane["label"], "model": lane["model"],
@@ -84,10 +84,10 @@ def main() -> None:
             stl = try_get(f"/api/mesh/{key}")
             if stl is None:
                 continue
-            (out / "data/mesh" / f"{key}.stl").write_bytes(stl)
+            (out / "mesh" / f"{key}.stl").write_bytes(stl)
             meshes.add(key)
-        (out / "data/compare" / f"{safe(rec_id)}.json").write_bytes(json.dumps(payload).encode())
-        (out / "data/sheet" / f"{safe(rec_id)}.png").write_bytes(sheet_png)
+        (out / "compare" / f"{safe(rec_id)}.json").write_bytes(json.dumps(payload).encode())
+        (out / "sheet" / f"{safe(rec_id)}.png").write_bytes(sheet_png)
         kept.append(part)
         examples.append({"id": rec_id, "title": payload["title"], "n_parts": payload["n_parts"],
                          "n_faces": payload["tier_faces"], "spec": payload.get("spec"),
@@ -95,60 +95,14 @@ def main() -> None:
         if n % 50 == 0 or n == len(parts):
             print(f"  {n}/{len(parts)} parts, {len(meshes)} solids", flush=True)
 
-    (out / "data/parts.json").write_bytes(json.dumps(kept).encode())
+    (out / "parts.json").write_bytes(json.dumps(kept).encode())
     if skipped:
         print(f"  skipped {len(skipped)} parts with no sheet or no saved answers: {skipped[:5]}")
 
     # The race lanes have to be the ones the saved answers carry, or a replay has no card to write into.
-    (out / "data/config.json").write_bytes(json.dumps(
+    (out / "config.json").write_bytes(json.dumps(
         {"lanes": list(lanes.values()), "default_modality": "image"}).encode())
-    (out / "data/examples.json").write_bytes(json.dumps(examples).encode())
-
-    # The page, with the API swapped for the files above. One source of truth: app/static/index.html drives both.
-    src = (ROOT / "app" / "static" / "index.html").read_text()
-    shim = """<script>
-// Static build: there is no API, so point the page's own calls at the files exported beside it.
-window.CADABRA_STATIC = true;
-const _fetch = window.fetch.bind(window);
-window.fetch = (input, init) => {
-  const url = typeof input === "string" ? input : input.url;
-  const m = /^\\/api\\/(.*)$/.exec(url || "");
-  if (!m) return _fetch(input, init);
-  const rest = m[1];
-  const one = (p) => _fetch("data/" + p, init);
-  if (rest === "parts") return one("parts.json");
-  if (rest === "scoreboard") return one("scoreboard.json");
-  if (rest === "config") return one("config.json");
-  if (rest === "examples") return one("examples.json");
-  if (rest.startsWith("compare/")) return one("compare/" + decodeURIComponent(rest.slice(8)).replace(/[:/]/g, "_") + ".json");
-  if (rest.startsWith("mesh/")) return one("mesh/" + rest.slice(5) + ".stl");
-  if (rest.startsWith("sheet/")) return one("sheet/" + decodeURIComponent(rest.slice(6)).replace(/[:/]/g, "_") + ".png");
-  return Promise.resolve(new Response("not in the static build", { status: 404 }));
-};
-</script>
-"""
-    marker = '<script type="importmap">'
-    assert marker in src, "importmap not found in index.html"
-    src = src.replace(marker, shim + marker, 1)
-    # everything is served from one folder here, so the module map cannot point at the app's /static mount
-    assert "/static/vendor/" in src, "vendor paths not found in index.html"
-    src = src.replace("/static/vendor/", "./vendor/")
-    src = src.replace('<select id="modality"><option value="image">Input: drawing sheet</option>'
-                      '<option value="text">Input: written spec</option></select>',
-                      '<select id="modality"><option value="image">Input: drawing sheet</option></select>', 1)
-    src = src.replace("Every model gets the same sheet and bounding box. Parts are held out.",
-                      "Answers recorded in the benchmark run, replayed at their measured speed. Parts are held out.", 1)
-    (out / "index.html").write_text(src)
-    shutil.copytree(ROOT / "app" / "static" / "vendor", out / "vendor")
-
-    # Static host config: no build step, and the exported data is content-addressed or part-keyed, so cache it hard.
-    (out / "vercel.json").write_text(json.dumps({
-        "cleanUrls": True,
-        "headers": [{"source": "/data/mesh/(.*)",
-                     "headers": [{"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}]},
-                    {"source": "/vendor/(.*)",
-                     "headers": [{"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}]}],
-    }, indent=2) + "\n")
+    (out / "examples.json").write_bytes(json.dumps(examples).encode())
 
     files = sum(1 for _ in out.rglob("*") if _.is_file())
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
