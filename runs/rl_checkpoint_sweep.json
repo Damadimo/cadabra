@@ -1,0 +1,195 @@
+{
+ "job": "wx22m73",
+ "note": "GRPO checkpoints of job wd669g3 plus the SFT checkpoint of job qj9924w as a control, graded by training/vlm/eval_sweep.py on the 500 held-out sheets (greedy, one sample).",
+ "summaries": {
+  "checkpoint-946": {
+   "n": 500,
+   "generation_s": 473.2,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.76
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.9224
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.563
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2712
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.5116
+   },
+   "run_rate": 0.988
+  },
+  "checkpoint-30": {
+   "n": 500,
+   "generation_s": 417.1,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.72
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.913
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4286
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2542
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4651
+   },
+   "run_rate": 0.994
+  },
+  "checkpoint-50": {
+   "n": 500,
+   "generation_s": 393.7,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.716
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.9068
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4286
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2542
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4419
+   },
+   "run_rate": 0.996
+  },
+  "checkpoint-10": {
+   "n": 500,
+   "generation_s": 490.7,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.732
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.913
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4874
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2373
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4884
+   },
+   "run_rate": 0.988
+  },
+  "checkpoint-60": {
+   "n": 500,
+   "generation_s": 409.9,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.714
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.9099
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4118
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2542
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4419
+   },
+   "run_rate": 0.996
+  },
+  "checkpoint-20": {
+   "n": 500,
+   "generation_s": 372.3,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.718
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.9161
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4202
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2373
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4884
+   },
+   "run_rate": 0.996
+  },
+  "checkpoint-40": {
+   "n": 500,
+   "generation_s": 441.7,
+   "image_pixels": 1048576,
+   "decoding": "greedy, 1 sample",
+   "all": {
+    "n": 500,
+    "success": 0.726
+   },
+   "simple (<=6 faces)": {
+    "n": 322,
+    "success": 0.9161
+   },
+   "medium (7-12)": {
+    "n": 119,
+    "success": 0.4286
+   },
+   "complex (>=13)": {
+    "n": 59,
+    "success": 0.2881
+   },
+   "multi-part": {
+    "n": 43,
+    "success": 0.4651
+   },
+   "run_rate": 0.996
+  }
+ }
+}

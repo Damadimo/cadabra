@@ -29,7 +29,14 @@ TIERS = [("all", "All 500", "#0f9d58", 2.2, "-"),
          ("simple (<=6 faces)", "Simple (≤ 6)", "#9aa5b1", 1.2, ":")]
 
 
+SAVED = ROOT / "runs" / "rl_checkpoint_sweep.json"
+
+
 def sweep(job: str) -> dict[str, dict]:
+    if SAVED.exists():  # the summaries as they were printed, so the figure does not depend on the job still existing
+        saved = json.loads(SAVED.read_text())
+        if saved.get("job") == job:
+            return saved["summaries"]
     out = subprocess.run(["baseten", "train", "job", "logs", "--job-id", job], capture_output=True, text=True, check=True).stdout
     rows = {}
     for line in out.replace("\r", "").splitlines():
